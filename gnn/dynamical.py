@@ -1,8 +1,61 @@
 import numpy as np
 import tensorflow as tf
+from tensorflow import keras
 
 from .modules import *
 from .utils import fc_matrix
+
+
+class MLP(keras.layers.Layer):
+    def __init__(self, units):
+        if not units:
+            raise ValueError("'units' must not be empty")
+
+        super().__init__()
+        self.hidden_layers = []
+
+        for unit in units[:-1]:
+            self.hidden_layers.append(keras.layers.Dense(unit, activation='relu'))
+            # NOTE: Support for dropout to be added.
+            # NOTE: Does one need BatchNorm?
+
+        self.hidden_layers.append(keras.layers.Dense(units[-1], activation='relu'))
+
+    def call(self, x):
+        for layer in self.hidden_layers:
+            x = layer(x)
+        return x
+
+
+class NodeAggregation(keras.layers.Layer):
+    """
+    Pass message from both nodes to the edge in between.
+    """
+
+    def __init__(self, edge_source):
+        super().__init__()
+
+    def call(self, x):
+
+
+class EdgeAggregation(keras.layers.Layer):
+    """
+    Pass message from incoming edges to the node.
+    """
+
+    def __init__(self, edge_target):
+        super().__init__()
+
+    def call(self, x):
+        pass
+
+
+class SwarmNet(keras.Model):
+    def __init__(self):
+        super().__init__()
+
+    def call(self, x):
+        pass
 
 
 def node_to_edge(node_msg, edge_sources, edge_targets):
