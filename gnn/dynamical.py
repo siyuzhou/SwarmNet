@@ -32,10 +32,22 @@ class NodeAggregation(keras.layers.Layer):
     Pass message from both nodes to the edge in between.
     """
 
-    def __init__(self, edge_source):
+    def __init__(self, edges):
         super().__init__()
+        # `edge_sources` and `edge_targets` in shape [num_edges, num_agents].
+        edge_sources, edge_targets = np.where(edges)
+        self.edge_sources = tf.constant(edge_sources)
+        self.edge_targets = tf.constant(edge_targets)
 
-    def call(self, x):
+    def call(self, node_msg):
+        # node_msg shape [batch, num_agents, 1, out_units].
+        msg_from_source = tf.transpose(tf.tensordot(node_msg, self.edge_sources, axes=[[1], [1]]),
+                                       perm=[0, 3, 1, 2])
+        msg_from_target = tf.transpose(tf.tensordot(node_msg, self.edge_targets, axes=[[1], [1]]),
+                                       perm=[0, 3, 1, 2])
+        # msg_from_source and msg_from_target in shape [batch, num_edges, 1, out_units]
+        edge_msg = tf.concat([msg_from_source, msg_from_target], axis=-1)
+        return edge_msg
 
 
 class EdgeAggregation(keras.layers.Layer):
@@ -43,41 +55,56 @@ class EdgeAggregation(keras.layers.Layer):
     Pass message from incoming edges to the node.
     """
 
-    def __init__(self, edge_target):
+    def __init__(self, edges):
         super().__init__()
 
-    def call(self, x):
-        pass
+        # `edge_sources` and `edge_targets` in shape [num_edges, num_agents].
+        edge_targets = np.where(edges)[1]
+        self.edge_targets = tf.constant(edge_targets)
+
+    def call(self, edge_msg):
+        # edge_msg shape [batch, num_edges, 1, out_units]
+        node_msg = tf.transpose(tf.tensordot(edge_msg, self.edge_targets, axes=[[1], [0]]),
+                                perm=[0, 3, 1, 2])  # Shape [batch, num_agents, 1, out_units].
+        return node_msg
+
+
+class Conv1D(keras.layers.Layer):
+    """
+    Condense and abstract the time segments.
+    """
+
+    def __init__(self, filters):
+        super().__init__()
+        # time segment length before being reduced to 1 by Conv1D
+        self.seg_len = 2 * len(filters) + 1
+
+        self.conv1d_layers = []
+        for channels in filters:
+            self.conv1d_layers.append(keras.layers.Conv1D())
+
+    def call(self, time_segs):
+        # Reshape to [batch*num_agents, time_seg_len, ndims], since conv1d only accept
+        # tensor with 3 dimensions.
+        _, num_agents, time_seg_len, ndims = time_segs.shape.as_list()
+        state = tf.reshape(time_segs, shape=[-1, time_seg_len, ndims])
+
+        # Node state encoder with 1D convolution along timesteps and across ndims as channels.
+        encoded_state = state
+        for conv1d in self.conv1d_layers:
+            encoded_state = conv1d(encoded_state)
+
+        encoded_state = tf.reshape(encoded_state, shape=[-1, num_agents, 1, filters])
+
+        return encoded_state
 
 
 class SwarmNet(keras.Model):
-    def __init__(self):
+    def __init__(self, params):
         super().__init__()
 
     def call(self, x):
         pass
-
-
-def node_to_edge(node_msg, edge_sources, edge_targets):
-    """Propagate node states to edges."""
-    with tf.name_scope("node_to_edge"):
-        msg_from_source = tf.transpose(tf.tensordot(node_msg, edge_sources, axes=[[1], [1]]),
-                                       perm=[0, 3, 1, 2])
-        msg_from_target = tf.transpose(tf.tensordot(node_msg, edge_targets, axes=[[1], [1]]),
-                                       perm=[0, 3, 1, 2])
-        # msg_from_source and msg_from_target in shape [batch, num_edges, 1, out_units]
-        edge_msg = tf.concat([msg_from_source, msg_from_target], axis=-1)
-
-    return edge_msg
-
-
-def edge_to_node(edge_msg, edge_targets):
-    """Send edge messages to target nodes."""
-    with tf.name_scope("edge_to_node"):
-        node_msg = tf.transpose(tf.tensordot(edge_msg, edge_targets, axes=[[1], [0]]),
-                                perm=[0, 3, 1, 2])  # Shape [batch, num_agents, 1, out_units].
-
-    return node_msg
 
 
 def cnn_dynamical(time_segs, edge_type, params, training=False):
