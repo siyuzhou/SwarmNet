@@ -12,8 +12,13 @@ class SwarmNet(keras.Model):
 
         # NOTE: For the moment assume Conv1D is always applied
         self.conv1d = Conv1D(params['conv1d']['filters'])
+        self.node_encoder = MLP(params['mlp']['hidden_units'])
+        self.edge_encoder = MLP(params['mlp']['hidden_units'])
 
-    def call(self, x):
+    def build(self, input_shape):
+        pass
+
+    def call(self, x, pred_steps):
         pass
 
 
