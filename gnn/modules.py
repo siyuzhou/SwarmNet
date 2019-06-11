@@ -33,8 +33,8 @@ class NodeAggregator(keras.layers.Layer):
         super().__init__()
         # `edge_sources` and `edge_targets` in shape [num_edges, num_agents].
         edge_sources, edge_targets = np.where(edges)
-        self.edge_sources = tf.constant(edge_sources)
-        self.edge_targets = tf.constant(edge_targets)
+        self.edge_sources = tf.one_hot(edge_sources, len(edges))
+        self.edge_targets = tf.one_hot(edge_targets, len(edges))
 
     def call(self, node_msg):
         # node_msg shape [batch, num_agents, 1, out_units].
@@ -57,7 +57,7 @@ class EdgeAggregator(keras.layers.Layer):
 
         # `edge_sources` and `edge_targets` in shape [num_edges, num_agents].
         edge_targets = np.where(edges)[1]
-        self.edge_targets = tf.constant(edge_targets)
+        self.edge_targets = tf.one_hot(edge_targets, len(edges))
 
     def call(self, edge_msg):
         # edge_msg shape [batch, num_edges, 1, out_units]
@@ -78,7 +78,9 @@ class Conv1D(keras.layers.Layer):
 
         self.conv1d_layers = []
         for channels in filters:
-            self.conv1d_layers.append(keras.layers.Conv1D())
+            self.conv1d_layers.append(keras.layers.Conv1D(channels, 3))
+
+        self.channels = channels
 
     def call(self, time_segs):
         # Reshape to [batch*num_agents, time_seg_len, ndims], since conv1d only accept
@@ -91,6 +93,6 @@ class Conv1D(keras.layers.Layer):
         for conv1d in self.conv1d_layers:
             encoded_state = conv1d(encoded_state)
 
-        encoded_state = tf.reshape(encoded_state, shape=[-1, num_agents, 1, filters])
+        encoded_state = tf.reshape(encoded_state, shape=[-1, num_agents, 1, self.channels])
 
         return encoded_state
