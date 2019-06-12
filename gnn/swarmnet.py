@@ -8,22 +8,21 @@ from .utils import fc_matrix
 
 class SwarmNet(keras.Model):
     def __init__(self, params):
-        super().__init__()
+        super().__init__(name='SwarmNet')
 
         # NOTE: For the moment assume Conv1D is always applied
         self.pred_steps = params['pred_steps']
         self.time_seg_len = 2 * len(params['cnn']['filters']) + 1
-        self.conv1d = Conv1D(params['cnn']['filters'])
 
-        self.edge_encoder = MLP(params['mlp']['hidden_units'])
-        self.node_encoder = MLP(params['mlp']['hidden_units'])
-        self.node_decoder = MLP(params['mlp']['hidden_units'])
+        self.conv1d = Conv1D(params['cnn']['filters'], name='Conv1D')
 
-        self.dense = keras.layers.Dense(params['ndims'])
+        self.edge_encoder = MLP(params['mlp']['hidden_units'], name='edge_encoder')
+        self.node_encoder = MLP(params['mlp']['hidden_units'], name='node_encoder')
+        self.node_decoder = MLP(params['mlp']['hidden_units'], name='node_decoder')
 
-    def build(self, nagents, ndims):
-        self.nagents = nagents
-        edges = fc_matrix(nagents)
+        self.dense = keras.layers.Dense(params['ndims'], name='out_layer')
+
+        edges = fc_matrix(params['nagents'])
 
         self.node_aggr = NodeAggregator(edges)
         self.edge_aggr = EdgeAggregator(edges)
@@ -54,6 +53,7 @@ class SwarmNet(keras.Model):
         # NOTE: For the moment, ignore edge_type
         # time_segs shape [batch, time_seg_len, num_agents, ndims]
         # Transpose to [batch, num_agents, time_seg_len,ndims]
+        print(time_segs.shape.as_list())
         extended_time_segs = tf.transpose(time_segs, [0, 2, 1, 3])
 
         for i in range(self.pred_steps):

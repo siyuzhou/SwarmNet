@@ -4,24 +4,29 @@ import numpy as np
 
 
 class MLP(keras.layers.Layer):
-    def __init__(self, units):
+    def __init__(self, units, name=None):
         if not units:
             raise ValueError("'units' must not be empty")
 
-        super().__init__()
+        super().__init__(name=name)
         self.hidden_layers = []
 
-        for unit in units[:-1]:
-            self.hidden_layers.append(keras.layers.Dense(unit, activation='relu'))
+        for i, unit in enumerate(units[:-1]):
+            name = f'hidden{i}'
+            layer = keras.layers.Dense(unit, activation='relu', name=name)
+            self.hidden_layers.append(name)
+            setattr(self, name, layer)
             # NOTE: Support for dropout to be added.
             # NOTE: Does one need BatchNorm?
 
-        self.hidden_layers.append(keras.layers.Dense(units[-1], activation='relu'))
+        self.out_layer = keras.layers.Dense(units[-1], activation='relu', name='out_layer')
 
     def call(self, x):
-        for layer in self.hidden_layers:
+        for name in self.hidden_layers:
+            layer = getattr(self, name)
             x = layer(x)
-        return x
+
+        return self.out_layer(x)
 
 
 class NodeAggregator(keras.layers.Layer):
@@ -71,14 +76,17 @@ class Conv1D(keras.layers.Layer):
     Condense and abstract the time segments.
     """
 
-    def __init__(self, filters):
-        super().__init__()
+    def __init__(self, filters, name=None):
+        super().__init__(name=name)
         # time segment length before being reduced to 1 by Conv1D
         self.seg_len = 2 * len(filters) + 1
 
         self.conv1d_layers = []
-        for channels in filters:
-            self.conv1d_layers.append(keras.layers.Conv1D(channels, 3))
+        for i, channels in enumerate(filters):
+            name = f'conv{i}'
+            layer = keras.layers.Conv1D(channels, 3, name=name)
+            self.conv1d_layers.append(name)
+            setattr(self, name, layer)
 
         self.channels = channels
 
@@ -90,8 +98,9 @@ class Conv1D(keras.layers.Layer):
 
         # Node state encoder with 1D convolution along timesteps and across ndims as channels.
         encoded_state = state
-        for conv1d in self.conv1d_layers:
-            encoded_state = conv1d(encoded_state)
+        for name in self.conv1d_layers:
+            conv = getattr(self, name)
+            encoded_state = conv(encoded_state)
 
         encoded_state = tf.reshape(encoded_state, shape=[-1, num_agents, 1, self.channels])
 

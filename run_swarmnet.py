@@ -29,20 +29,21 @@ def data_preprocess(time_series, seg_len, pred_steps, edge_type=None, mode='trai
     return time_segs, expected_time_segs
 
 
-def build_model(params, log_dir):
+def build_model(params):
     model = gnn.SwarmNet(params)
-    model.build(params['nagents'], params['ndims'])
 
     optimizer = keras.optimizers.Adam(lr=params['learning_rate'])
     loss = keras.losses.MeanSquaredError()
 
     model.compile(optimizer, loss=loss)
 
+    return model
+
+
+def load_model(model, log_dir):
     checkpoint = os.path.join(log_dir, 'weights.h5')
     if os.path.exists(checkpoint):
         model.load_weights(checkpoint)
-
-    return model
 
 
 def save_model(model, log_dir):
@@ -66,12 +67,16 @@ def main():
 
         time_segs, expected_time_segs = data_preprocess(train_data, seg_len, ARGS.pred_steps)
 
-        model_params.update({'nagents': nagents, 'ndims': ndims, 'pred_steps': ARGS.pred_steps})
-        model = build_model(model_params, ARGS.log_dir)
+        model_params.update({'nagents': nagents, 'ndims': ndims,
+                             'pred_steps': ARGS.pred_steps, 'seg_len': seg_len})
+        model = build_model(model_params)
 
-        save_model(model, ARGS.log_dir)
+        model.fit(time_segs[:1], expected_time_segs[:1], epochs=0, batch_size=ARGS.batch_size)
+        # print(model.summary())
+
+        load_model(model, ARGS.log_dir)
+
         model.fit(time_segs, expected_time_segs, epochs=ARGS.epochs, batch_size=ARGS.batch_size)
-
         save_model(model, ARGS.log_dir)
 
 
