@@ -21,8 +21,8 @@ def load_data(data_path, transpose=None, edge=True, prefix='train'):
 
         instances, n_agents, _ = edge_data.shape
         edge_data = np.stack([edge_data[i][np.where(utils.fc_matrix(n_agents))]
-                               for i in range(instances)], 0)
-
+                              for i in range(instances)], 0)
+        # Shape [instances, n_edges]
         return data, edge_data
 
     return data

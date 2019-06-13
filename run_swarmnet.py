@@ -8,10 +8,15 @@ import numpy as np
 
 import gnn
 from gnn.data import load_data
-from gnn.utils import gumbel_softmax
+from gnn.utils import one_hot
 
 
-def data_preprocess(time_series, seg_len, pred_steps, edge_type=None, mode='train'):
+def data_preprocess(data, seg_len, pred_steps, edge_type=None, mode='train'):
+    if edge_type > 1:
+        time_series, edge_types = data
+    else:
+        time_series = data
+
     time_steps, nagents, ndims = time_series.shape[1:]
     # time_series shape [num_sims, time_steps, nagents, ndims]
     # Stack shape [num_sims, time_steps-seg_len-pred_steps+1, seg_len, nagents, ndims]
@@ -26,7 +31,17 @@ def data_preprocess(time_series, seg_len, pred_steps, edge_type=None, mode='trai
     time_segs = time_segs_stack.reshape([-1, seg_len, nagents, ndims])
     expected_time_segs = expected_time_segs_stack.reshape([-1, pred_steps, nagents, ndims])
 
-    return time_segs, expected_time_segs
+    if edge_type > 1:
+        edge_types = one_hot(edge_types, edge_type, np.float32)
+        # Shape [instances, n_edges, edge_type]
+        n_edges = edge_types.shape[1]
+        edge_types = np.stack([edge_types for _ in range(time_segs_stack.shape[1])], axis=1)
+        edge_types = np.reshape(edge_type, [-1, n_edges, edge_type])
+        print('Edge data loaded.')
+        return (time_segs, edge_types), expected_time_segs
+
+    else:
+        return time_segs, expected_time_segs
 
 
 def build_model(params):
@@ -44,6 +59,7 @@ def build_model(params):
 def load_model(model, log_dir):
     checkpoint = os.path.join(log_dir, 'weights.h5')
     if os.path.exists(checkpoint):
+        print('Model loaded.')
         model.load_weights(checkpoint)
 
 
@@ -52,6 +68,7 @@ def save_model(model, log_dir):
     checkpoint = os.path.join(log_dir, 'weights.h5')
 
     model.save_weights(checkpoint)
+    print('Model saved.')
 
 
 def main():
@@ -68,11 +85,16 @@ def main():
     elif ARGS.test:
         prefix = 'test'
 
-    data = load_data(ARGS.data_dir, ARGS.data_transpose, edge=False,
-                     prefix=prefix)
-    nagents, ndims = data.shape[-2:]
+    model_params['edge_type'] = model_params.get('edge_type', 1)
+    # data contains edge_types if `edge=True`.
+    data = load_data(ARGS.data_dir, ARGS.data_transpose,
+                     edge=model_params['edge_type'] > 1, prefix=prefix)
 
-    time_segs, expected_time_segs = data_preprocess(data, seg_len, ARGS.pred_steps)
+    # Depending on whether `edge_type` is True, input_data may contain instances of edge_types.
+    input_data, expected_time_segs = data_preprocess(
+        data, seg_len, ARGS.pred_steps, edge_type=model_params['edge_type'])
+
+    nagents, ndims = expected_time_segs.shape[-2:]
 
     model_params.update({'nagents': nagents, 'ndims': ndims,
                          'pred_steps': ARGS.pred_steps, 'time_seg_len': seg_len})
@@ -81,17 +103,17 @@ def main():
     load_model(model, ARGS.log_dir)
 
     if ARGS.train:
-        history = model.fit(time_segs, expected_time_segs,
+        history = model.fit(input_data, expected_time_segs,
                             epochs=ARGS.epochs, batch_size=ARGS.batch_size)
         save_model(model, ARGS.log_dir)
         print(history.history)
 
     elif ARGS.eval:
-        result = model.evaluate(time_segs, expected_time_segs, batch_size=ARGS.batch_size)
+        result = model.evaluate(input_data, expected_time_segs, batch_size=ARGS.batch_size)
         print(result)
 
     elif ARGS.test:
-        prediction = model.predict(time_segs)
+        prediction = model.predict(input_data)
         np.save(os.path.join(ARGS.log_dir, f'prediction_{ARGS.pred_steps}.npy'), prediction)
 
 

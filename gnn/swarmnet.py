@@ -14,12 +14,21 @@ class SwarmNet(keras.Model):
         self.pred_steps = params['pred_steps']
         self.time_seg_len = params['time_seg_len']
 
+        # Whether edge type used for model.
+        self.edge_type = params['edge_type']
+        self.skip_zero = 1 if self.edge_type > 1 and params.get('skip_zero', False) else 0
+
         if self.time_seg_len > 1:
             self.conv1d = Conv1D(params['cnn']['filters'], name='Conv1D')
         else:
             self.conv1d = keras.layers.Lambda(lambda x: x)
 
-        self.edge_encoder = MLP(params['mlp']['hidden_units'], name='edge_encoder')
+        if self.edge_type > 1:
+            self.edge_encoders = [MLP(params['mlp']['hidden_units'], name=f'edge_encoder_{i}')
+                                  for i in range(self.skip_zero, self.edge_type)]
+        else:
+            self.edge_encoder = MLP(params['mlp']['hidden_units'], name='edge_encoder')
+
         self.node_encoder = MLP(params['mlp']['hidden_units'], name='node_encoder')
         self.node_decoder = MLP(params['mlp']['hidden_units'], name='node_decoder')
 
@@ -38,14 +47,32 @@ class SwarmNet(keras.Model):
 
         super().build(input_shape)
 
-    def _pred_next(self, time_segs, edge_type=None):
+    def _pred_next(self, time_segs, edge_types=None):
         # NOTE: For the moment, ignore edge_type.
         condensed_state = self.conv1d(time_segs)
         # condensed_state shape [batch, num_agents, 1, filters]
 
         # Form edges. Shape [batch, num_edges, 1, filters]
         edge_msg = self.node_aggr(condensed_state)
-        edge_msg = self.edge_encoder(edge_msg)
+
+        if self.edge_type > 1:
+            encoded_msg_by_type = []
+            for i in range(self.skip_zero, self.edge_type):
+                # mlp_encoder for each edge type.
+                encoded_msg = self.edge_encoders[i](edge_msg)
+
+                encoded_msg_by_type.append(encoded_msg)
+
+            encoded_msg_by_type = tf.concat(encoded_msg_by_type, axis=2)
+            # Shape [batch, num_edges, edge_types, hidden_units]
+
+            edge_msg = tf.reduce_sum(tf.multiply(encoded_msg_by_type,
+                                                 edge_types[:, :, self.skip_zero:, :]),
+                                     axis=2,
+                                     keepdims=True)
+        else:
+            # Shape [batch, num_edges, 1, hidden_units]
+            edge_msg = self.edge_encoder(edge_msg)
 
         # Edge aggregation. Shape [batch, num_nodes, 1, filters]
         node_msg = self.edge_aggr(edge_msg)
@@ -60,14 +87,14 @@ class SwarmNet(keras.Model):
         next_state = self.dense(node_state) + prev_state
         return next_state
 
-    def call(self, time_segs, edge_type=None):
+    def call(self, time_segs, edge_types=None):
         # NOTE: For the moment, ignore edge_type
         # time_segs shape [batch, time_seg_len, num_agents, ndims]
         # Transpose to [batch, num_agents, time_seg_len,ndims]
         extended_time_segs = tf.transpose(time_segs, [0, 2, 1, 3])
 
         for i in range(self.pred_steps):
-            next_state = self._pred_next(extended_time_segs[:, :, i:, :], edge_type)
+            next_state = self._pred_next(extended_time_segs[:, :, i:, :], edge_types)
             extended_time_segs = tf.concat([extended_time_segs, next_state], axis=2)
 
         # Transpose back to [batch, time_seg_len+pred_steps, num_agetns, ndims]
