@@ -36,6 +36,7 @@ def build_model(params):
     loss = keras.losses.MeanSquaredError()
 
     model.compile(optimizer, loss=loss)
+    model.build((None, params['time_seg_len'], params['nagents'], params['ndims']))
 
     return model
 
@@ -68,11 +69,8 @@ def main():
         time_segs, expected_time_segs = data_preprocess(train_data, seg_len, ARGS.pred_steps)
 
         model_params.update({'nagents': nagents, 'ndims': ndims,
-                             'pred_steps': ARGS.pred_steps, 'seg_len': seg_len})
+                             'pred_steps': ARGS.pred_steps, 'time_seg_len': seg_len})
         model = build_model(model_params)
-
-        model.fit(time_segs[:1], expected_time_segs[:1], epochs=0, batch_size=ARGS.batch_size)
-        # print(model.summary())
 
         load_model(model, ARGS.log_dir)
 

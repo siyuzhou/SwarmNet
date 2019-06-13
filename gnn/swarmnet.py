@@ -12,9 +12,12 @@ class SwarmNet(keras.Model):
 
         # NOTE: For the moment assume Conv1D is always applied
         self.pred_steps = params['pred_steps']
-        self.time_seg_len = 2 * len(params['cnn']['filters']) + 1
+        self.time_seg_len = params['time_seg_len']
 
-        self.conv1d = Conv1D(params['cnn']['filters'], name='Conv1D')
+        if self.time_seg_len > 1:
+            self.conv1d = Conv1D(params['cnn']['filters'], name='Conv1D')
+        else:
+            self.conv1d = keras.layers.Lambda(lambda x: x)
 
         self.edge_encoder = MLP(params['mlp']['hidden_units'], name='edge_encoder')
         self.node_encoder = MLP(params['mlp']['hidden_units'], name='node_encoder')
@@ -22,10 +25,18 @@ class SwarmNet(keras.Model):
 
         self.dense = keras.layers.Dense(params['ndims'], name='out_layer')
 
-        edges = fc_matrix(params['nagents'])
+    def build(self, input_shape):
+        # input_shape (None, time_seg_len, nagents, ndims)
+        input_shape = tuple(input_shape)
 
+        edges = fc_matrix(input_shape[2])
         self.node_aggr = NodeAggregator(edges)
         self.edge_aggr = EdgeAggregator(edges)
+
+        x = keras.layers.Input(input_shape[1:])
+        self.call(x)
+
+        super().build(input_shape)
 
     def _pred_next(self, time_segs, edge_type=None):
         # NOTE: For the moment, ignore edge_type.
@@ -38,7 +49,7 @@ class SwarmNet(keras.Model):
 
         # Edge aggregation. Shape [batch, num_nodes, 1, filters]
         node_msg = self.edge_aggr(edge_msg)
-
+        node_msg = self.node_encoder(node_msg)
         # The last state in each timeseries of the stack.
         prev_state = time_segs[:, :, -1:, :]
         # Skip connection
@@ -53,7 +64,6 @@ class SwarmNet(keras.Model):
         # NOTE: For the moment, ignore edge_type
         # time_segs shape [batch, time_seg_len, num_agents, ndims]
         # Transpose to [batch, num_agents, time_seg_len,ndims]
-        print(time_segs.shape.as_list())
         extended_time_segs = tf.transpose(time_segs, [0, 2, 1, 3])
 
         for i in range(self.pred_steps):

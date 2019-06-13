@@ -77,6 +77,9 @@ class Conv1D(keras.layers.Layer):
     """
 
     def __init__(self, filters, name=None):
+        if not filters:
+            raise ValueError("'filters' must not be empty")
+
         super().__init__(name=name)
         # time segment length before being reduced to 1 by Conv1D
         self.seg_len = 2 * len(filters) + 1
