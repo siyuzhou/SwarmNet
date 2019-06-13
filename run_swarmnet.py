@@ -62,20 +62,37 @@ def main():
     seg_len = 2 * len(model_params['cnn']['filters']) + 1
 
     if ARGS.train:
-        train_data = load_data(ARGS.data_dir, ARGS.data_transpose, edge=False,
-                               prefix='train')
-        nagents, ndims = train_data.shape[-2:]
+        prefix = 'train'
+    elif ARGS.eval:
+        prefix = 'valid'
+    elif ARGS.test:
+        prefix = 'test'
 
-        time_segs, expected_time_segs = data_preprocess(train_data, seg_len, ARGS.pred_steps)
+    data = load_data(ARGS.data_dir, ARGS.data_transpose, edge=False,
+                     prefix=prefix)
+    nagents, ndims = data.shape[-2:]
 
-        model_params.update({'nagents': nagents, 'ndims': ndims,
-                             'pred_steps': ARGS.pred_steps, 'time_seg_len': seg_len})
-        model = build_model(model_params)
+    time_segs, expected_time_segs = data_preprocess(data, seg_len, ARGS.pred_steps)
 
-        load_model(model, ARGS.log_dir)
+    model_params.update({'nagents': nagents, 'ndims': ndims,
+                         'pred_steps': ARGS.pred_steps, 'time_seg_len': seg_len})
+    model = build_model(model_params)
 
-        model.fit(time_segs, expected_time_segs, epochs=ARGS.epochs, batch_size=ARGS.batch_size)
+    load_model(model, ARGS.log_dir)
+
+    if ARGS.train:
+        history = model.fit(time_segs, expected_time_segs,
+                            epochs=ARGS.epochs, batch_size=ARGS.batch_size)
         save_model(model, ARGS.log_dir)
+        print(history.history)
+
+    elif ARGS.eval:
+        result = model.evaluate(time_segs, expected_time_segs, batch_size=ARGS.batch_size)
+        print(result)
+
+    elif ARGS.test:
+        prediction = model.predict(time_segs)
+        np.save(os.path.join(ARGS.log_dir, f'prediction_{ARGS.pred_steps}.npy'), prediction)
 
 
 if __name__ == '__main__':
