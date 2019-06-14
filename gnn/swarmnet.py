@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
@@ -100,3 +101,35 @@ class SwarmNet(keras.Model):
 
         # Return only the predicted part of extended_time_segs
         return extended_time_segs[:, self.time_seg_len:, :, :]
+
+
+def build_model(params):
+    model = SwarmNet(params)
+
+    optimizer = keras.optimizers.Adam(lr=params['learning_rate'])
+    loss = keras.losses.MeanSquaredError()
+
+    model.compile(optimizer, loss=loss)
+
+    if params['edge_type'] > 1:
+        input_shape = [(None, params['time_seg_len'], params['nagents'], params['ndims']),
+                       (None, params['nagents']*(params['nagents']-1), params['edge_type'])]
+    else:
+        input_shape = (None, params['time_seg_len'], params['nagents'], params['ndims'])
+
+    model.build(input_shape)
+
+    return model
+
+
+def load_model(model, log_dir):
+    checkpoint = os.path.join(log_dir, 'weights.h5')
+    if os.path.exists(checkpoint):
+        model.load_weights(checkpoint)
+
+
+def save_model(model, log_dir):
+    os.makedirs(log_dir, exist_ok=True)
+    checkpoint = os.path.join(log_dir, 'weights.h5')
+
+    model.save_weights(checkpoint)

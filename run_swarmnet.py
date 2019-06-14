@@ -7,75 +7,8 @@ from tensorflow import keras
 import numpy as np
 
 import gnn
-from gnn.data import load_data
+from gnn.data import load_data, preprocess_data
 from gnn.utils import one_hot
-
-
-def data_preprocess(data, seg_len, pred_steps, edge_type=None, mode='train'):
-    if edge_type > 1:
-        time_series, edge_types = data
-    else:
-        time_series = data
-
-    time_steps, nagents, ndims = time_series.shape[1:]
-    # time_series shape [num_sims, time_steps, nagents, ndims]
-    # Stack shape [num_sims, time_steps-seg_len-pred_steps+1, seg_len, nagents, ndims]
-    time_segs_stack = gnn.utils.stack_time_series(time_series[:, :-pred_steps, :, :],
-                                                  seg_len)
-    # Stack shape [num_sims, time_steps-seg_len-pred_steps+1, pred_steps, nagents, ndims]
-    expected_time_segs_stack = gnn.utils.stack_time_series(time_series[:, seg_len:, :, :],
-                                                           pred_steps)
-    assert (time_segs_stack.shape[1] == expected_time_segs_stack.shape[1]
-            == time_steps - seg_len - pred_steps + 1)
-
-    time_segs = time_segs_stack.reshape([-1, seg_len, nagents, ndims])
-    expected_time_segs = expected_time_segs_stack.reshape([-1, pred_steps, nagents, ndims])
-
-    if edge_type > 1:
-        edge_types = one_hot(edge_types, edge_type, np.float32)
-        # Shape [instances, n_edges, edge_type]
-        n_edges = edge_types.shape[1]
-        edge_types = np.stack([edge_types for _ in range(time_segs_stack.shape[1])], axis=1)
-        edge_types = np.reshape(edge_types, [-1, n_edges, edge_type])
-
-        return [time_segs, edge_types], expected_time_segs
-
-    else:
-        return time_segs, expected_time_segs
-
-
-def build_model(params):
-    model = gnn.SwarmNet(params)
-
-    optimizer = keras.optimizers.Adam(lr=params['learning_rate'])
-    loss = keras.losses.MeanSquaredError()
-
-    model.compile(optimizer, loss=loss)
-
-    if params['edge_type'] > 1:
-        input_shape = [(None, params['time_seg_len'], params['nagents'], params['ndims']),
-                       (None, params['nagents']*(params['nagents']-1), params['edge_type'])]
-    else:
-        input_shape = (None, params['time_seg_len'], params['nagents'], params['ndims'])
-
-    model.build(input_shape)
-
-    return model
-
-
-def load_model(model, log_dir):
-    checkpoint = os.path.join(log_dir, 'weights.h5')
-    if os.path.exists(checkpoint):
-        print('Model loaded.')
-        model.load_weights(checkpoint)
-
-
-def save_model(model, log_dir):
-    os.makedirs(log_dir, exist_ok=True)
-    checkpoint = os.path.join(log_dir, 'weights.h5')
-
-    model.save_weights(checkpoint)
-    print('Model saved.')
 
 
 def main():
@@ -98,21 +31,21 @@ def main():
                      edge=model_params['edge_type'] > 1, prefix=prefix)
 
     # input_data: a list which is [time_segs, edge_types] if `edge_type` > 1, else [time_segs]
-    input_data, expected_time_segs = data_preprocess(
+    input_data, expected_time_segs = preprocess_data(
         data, seg_len, ARGS.pred_steps, edge_type=model_params['edge_type'])
 
     nagents, ndims = expected_time_segs.shape[-2:]
 
     model_params.update({'nagents': nagents, 'ndims': ndims,
                          'pred_steps': ARGS.pred_steps, 'time_seg_len': seg_len})
-    model = build_model(model_params)
+    model = gnn.build_model(model_params)
 
-    load_model(model, ARGS.log_dir)
+    gnn.load_model(model, ARGS.log_dir)
 
     if ARGS.train:
         history = model.fit(input_data, expected_time_segs,
                             epochs=ARGS.epochs, batch_size=ARGS.batch_size)
-        save_model(model, ARGS.log_dir)
+        gnn.save_model(model, ARGS.log_dir)
         print(history.history)
 
     elif ARGS.eval:
