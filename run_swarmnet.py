@@ -36,9 +36,9 @@ def data_preprocess(data, seg_len, pred_steps, edge_type=None, mode='train'):
         # Shape [instances, n_edges, edge_type]
         n_edges = edge_types.shape[1]
         edge_types = np.stack([edge_types for _ in range(time_segs_stack.shape[1])], axis=1)
-        edge_types = np.reshape(edge_type, [-1, n_edges, edge_type])
-        print('Edge data loaded.')
-        return (time_segs, edge_types), expected_time_segs
+        edge_types = np.reshape(edge_types, [-1, n_edges, edge_type])
+
+        return [time_segs, edge_types], expected_time_segs
 
     else:
         return time_segs, expected_time_segs
@@ -51,7 +51,14 @@ def build_model(params):
     loss = keras.losses.MeanSquaredError()
 
     model.compile(optimizer, loss=loss)
-    model.build((None, params['time_seg_len'], params['nagents'], params['ndims']))
+
+    if params['edge_type'] > 1:
+        input_shape = [(None, params['time_seg_len'], params['nagents'], params['ndims']),
+                       (None, params['nagents']*(params['nagents']-1), params['edge_type'])]
+    else:
+        input_shape = (None, params['time_seg_len'], params['nagents'], params['ndims'])
+
+    model.build(input_shape)
 
     return model
 
@@ -90,7 +97,7 @@ def main():
     data = load_data(ARGS.data_dir, ARGS.data_transpose,
                      edge=model_params['edge_type'] > 1, prefix=prefix)
 
-    # Depending on whether `edge_type` is True, input_data may contain instances of edge_types.
+    # input_data: a list which is [time_segs, edge_types] if `edge_type` > 1, else [time_segs]
     input_data, expected_time_segs = data_preprocess(
         data, seg_len, ARGS.pred_steps, edge_type=model_params['edge_type'])
 

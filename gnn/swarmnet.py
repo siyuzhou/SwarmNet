@@ -34,18 +34,9 @@ class SwarmNet(keras.Model):
 
         self.dense = keras.layers.Dense(params['ndims'], name='out_layer')
 
-    def build(self, input_shape):
-        # input_shape (None, time_seg_len, nagents, ndims)
-        input_shape = tuple(input_shape)
-
-        edges = fc_matrix(input_shape[2])
+        edges = fc_matrix(params['nagents'])
         self.node_aggr = NodeAggregator(edges)
         self.edge_aggr = EdgeAggregator(edges)
-
-        x = keras.layers.Input(input_shape[1:])
-        self.call(x)
-
-        super().build(input_shape)
 
     def _pred_next(self, time_segs, edge_types=None):
         # NOTE: For the moment, ignore edge_type.
@@ -87,10 +78,17 @@ class SwarmNet(keras.Model):
         next_state = self.dense(node_state) + prev_state
         return next_state
 
-    def call(self, time_segs, edge_types=None):
-        # NOTE: For the moment, ignore edge_type
+    def call(self, inputs):
         # time_segs shape [batch, time_seg_len, num_agents, ndims]
         # Transpose to [batch, num_agents, time_seg_len,ndims]
+        if self.edge_type > 1:
+            edge_types = tf.expand_dims(inputs[1], axis=3)
+            # Shape [None, n_edges, n_types, 1]
+            time_segs = inputs[0]
+        else:
+            time_segs = inputs
+            edge_types = None
+
         extended_time_segs = tf.transpose(time_segs, [0, 2, 1, 3])
 
         for i in range(self.pred_steps):
