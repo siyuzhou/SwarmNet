@@ -56,4 +56,4 @@ def preprocess_data(data, seg_len, pred_steps, edge_type=None):
         return [time_segs, edge_types], expected_time_segs
 
     else:
-        return time_segs, expected_time_segs
+        return [time_segs], expected_time_segs

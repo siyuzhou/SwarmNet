@@ -82,12 +82,11 @@ class SwarmNet(keras.Model):
     def call(self, inputs):
         # time_segs shape [batch, time_seg_len, num_agents, ndims]
         # Transpose to [batch, num_agents, time_seg_len,ndims]
+        time_segs = inputs[0]
         if self.edge_type > 1:
             edge_types = tf.expand_dims(inputs[1], axis=3)
             # Shape [None, n_edges, n_types, 1]
-            time_segs = inputs[0]
         else:
-            time_segs = inputs
             edge_types = None
 
         extended_time_segs = tf.transpose(time_segs, [0, 2, 1, 3])
@@ -115,7 +114,7 @@ def build_model(params):
         input_shape = [(None, params['time_seg_len'], params['nagents'], params['ndims']),
                        (None, params['nagents']*(params['nagents']-1), params['edge_type'])]
     else:
-        input_shape = (None, params['time_seg_len'], params['nagents'], params['ndims'])
+        input_shape = [(None, params['time_seg_len'], params['nagents'], params['ndims'])]
 
     model.build(input_shape)
 
@@ -133,3 +132,5 @@ def save_model(model, log_dir):
     checkpoint = os.path.join(log_dir, 'weights.h5')
 
     model.save_weights(checkpoint)
+
+    return keras.callbacks.ModelCheckpoint(checkpoint, save_weights_only=True)

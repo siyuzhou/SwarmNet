@@ -11,6 +11,12 @@ from gnn.data import load_data, preprocess_data
 from gnn.utils import one_hot
 
 
+def eval_base_line(eval_data):
+    time_segs = eval_data[0]
+    return np.mean(np.square(time_segs[:, :-1, :, :] -
+                             time_segs[:, 1:, :, :]))
+
+
 def main():
     with open(ARGS.config) as f:
         model_params = json.load(f)
@@ -43,14 +49,16 @@ def main():
     gnn.load_model(model, ARGS.log_dir)
 
     if ARGS.train:
+        checkpoint = gnn.save_model(model, ARGS.log_dir)
         history = model.fit(input_data, expected_time_segs,
-                            epochs=ARGS.epochs, batch_size=ARGS.batch_size)
-        gnn.save_model(model, ARGS.log_dir)
-        print(history.history)
+                            epochs=ARGS.epochs, batch_size=ARGS.batch_size,
+                            callbacks=[checkpoint])
+        # print(history.history)
 
     elif ARGS.eval:
         result = model.evaluate(input_data, expected_time_segs, batch_size=ARGS.batch_size)
-        print(result)
+        # print(result)
+        print('Baseline: ', eval_base_line(input_data))
 
     elif ARGS.test:
         prediction = model.predict(input_data)
