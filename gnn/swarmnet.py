@@ -39,6 +39,14 @@ class SwarmNet(keras.Model):
         self.node_aggr = NodeAggregator(edges)
         self.edge_aggr = EdgeAggregator(edges)
 
+    def build(self, input_shape):
+        t = keras.layers.Input(input_shape[0][1:])
+        if self.edge_type > 1:
+            e = keras.layers.Input(input_shape[1][1:])
+
+        self.call((t, e))
+        self.built = True
+
     def _pred_next(self, time_segs, edge_types=None):
         # NOTE: For the moment, ignore edge_type.
         condensed_state = self.conv1d(time_segs)
