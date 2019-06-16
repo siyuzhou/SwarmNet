@@ -11,10 +11,6 @@ from gnn.data import load_data, preprocess_data
 from gnn.utils import one_hot
 
 
-def define_model():
-    pass
-
-
 def main():
     with open(ARGS.config) as f:
         model_params = json.load(f)
@@ -37,16 +33,17 @@ def main():
 
     model_params.update({'nagents': nagents, 'ndims': ndims,
                          'pred_steps': ARGS.pred_steps, 'time_seg_len': seg_len})
-    model = gnn.build_model(model_params)
+    model, inputs = gnn.build_model(model_params, return_inputs=True)
     print(model.summary())
     gnn.load_model(model, ARGS.log_dir)
 
+    prediction = model.predict(input_data)
+
     # Create Debug model
     edge_encoder_name = 'edge_encoder_1'
-    print(model.get_layer(edge_encoder_name).input)
 
     edge_encoder_model = keras.Model(
-        inputs=model.inputs, output=model.get_layer(edge_encoder_name).output)
+        inputs=inputs, outputs=model.get_layer(edge_encoder_name).output)
     edge_encoder_output = edge_encoder_model.predict(input_data)
     np.save(os.path.join(ARGS.log_dir, f'edge_encoder_output'), edge_encoder_output)
 

@@ -41,11 +41,14 @@ class SwarmNet(keras.Model):
 
     def build(self, input_shape):
         t = keras.layers.Input(input_shape[0][1:])
+        inputs = [t]
         if self.edge_type > 1:
             e = keras.layers.Input(input_shape[1][1:])
+            inputs.append(e)
 
-        self.call((t, e))
+        self.call(inputs)
         self.built = True
+        return inputs
 
     def _pred_next(self, time_segs, edge_types=None):
         # NOTE: For the moment, ignore edge_type.
@@ -110,7 +113,7 @@ class SwarmNet(keras.Model):
         return extended_time_segs[:, self.time_seg_len:, :, :]
 
 
-def build_model(params):
+def build_model(params, return_inputs=False):
     model = SwarmNet(params)
 
     optimizer = keras.optimizers.Adam(lr=params['learning_rate'])
@@ -124,7 +127,10 @@ def build_model(params):
     else:
         input_shape = [(None, params['time_seg_len'], params['nagents'], params['ndims'])]
 
-    model.build(input_shape)
+    inputs = model.build(input_shape)
+
+    if return_inputs:
+        return model, inputs
 
     return model
 
