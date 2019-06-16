@@ -25,13 +25,13 @@ class SwarmNet(keras.Model):
             self.conv1d = keras.layers.Lambda(lambda x: x)
 
         if self.edge_type > 1:
-            self.edge_encoders = [MLP(params['mlp']['hidden_units'], name=f'edge_encoder_{i}')
+            self.edge_encoders = [MLP(params['edge_encoder']['hidden_units'], name=f'edge_encoder_{i}')
                                   for i in range(self.skip_zero, self.edge_type)]
         else:
-            self.edge_encoder = MLP(params['mlp']['hidden_units'], name='edge_encoder')
+            self.edge_encoder = MLP(params['edge_encoder']['hidden_units'], name='edge_encoder')
 
-        self.node_encoder = MLP(params['mlp']['hidden_units'], name='node_encoder')
-        self.node_decoder = MLP(params['mlp']['hidden_units'], name='node_decoder')
+        self.node_encoder = MLP(params['node_encoder']['hidden_units'], name='node_encoder')
+        self.node_decoder = MLP(params['node_decoder']['hidden_units'], name='node_decoder')
 
         self.dense = keras.layers.Dense(params['ndims'], name='out_layer')
 
