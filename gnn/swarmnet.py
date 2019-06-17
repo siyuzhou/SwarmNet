@@ -26,7 +26,7 @@ class SwarmNet(keras.Model):
 
         if self.edge_type > 1:
             self.edge_encoders = [MLP(params['edge_encoder']['hidden_units'], name=f'edge_encoder_{i}')
-                                  for i in range(self.skip_zero, self.edge_type)]
+                                  for i in range(self.edge_type)]
         else:
             self.edge_encoder = MLP(params['edge_encoder']['hidden_units'], name='edge_encoder')
 
