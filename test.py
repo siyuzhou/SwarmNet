@@ -54,8 +54,6 @@ if __name__ == '__main__':
                         help='data directory')
     parser.add_argument('--data-transpose', type=int, nargs=4, default=None,
                         help='axes for data transposition')
-    parser.add_argument('--data-size', type=int, default=None,
-                        help='optional data size cap to use for training')
     parser.add_argument('--config', type=str,
                         help='model config file')
     parser.add_argument('--log-dir', type=str,
