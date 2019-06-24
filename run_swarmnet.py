@@ -35,17 +35,18 @@ def main():
     # data contains edge_types if `edge=True`.
     data = load_data(ARGS.data_dir, ARGS.data_transpose,
                      edge=model_params['edge_type'] > 1, prefix=prefix)
-
+    print(f"\nData from {ARGS.data_dir} loaded.")
     # input_data: a list which is [time_segs, edge_types] if `edge_type` > 1, else [time_segs]
     input_data, expected_time_segs = preprocess_data(
         data, seg_len, ARGS.pred_steps, edge_type=model_params['edge_type'])
+    print(f"\nData processed.\n")
 
     nagents, ndims = expected_time_segs.shape[-2:]
 
     model_params.update({'nagents': nagents, 'ndims': ndims,
                          'pred_steps': ARGS.pred_steps, 'time_seg_len': seg_len})
     model = gnn.build_model(model_params)
-
+    print('\n', model.summary(), '\n')
     gnn.load_model(model, ARGS.log_dir)
 
     if ARGS.train:
@@ -83,8 +84,6 @@ if __name__ == '__main__':
                         help='number of steps the estimator predicts for time series')
     parser.add_argument('--batch-size', type=int, default=128,
                         help='batch size')
-    parser.add_argument('--verbose', action='store_true', default=False,
-                        help='turn on logging info')
     parser.add_argument('--train', action='store_true', default=False,
                         help='turn on training')
     parser.add_argument('--eval', action='store_true', default=False,
@@ -97,7 +96,6 @@ if __name__ == '__main__':
     ARGS.config = os.path.expanduser(ARGS.config)
     ARGS.log_dir = os.path.expanduser(ARGS.log_dir)
 
-    if ARGS.verbose:
-        tf.logging.set_verbosity(tf.logging.INFO)
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
     main()
