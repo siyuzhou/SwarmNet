@@ -46,7 +46,8 @@ def main():
     model_params.update({'nagents': nagents, 'ndims': ndims,
                          'pred_steps': ARGS.pred_steps, 'time_seg_len': seg_len})
     model = gnn.build_model(model_params)
-    print('\n', model.summary(), '\n')
+    model.summary()
+
     gnn.load_model(model, ARGS.log_dir)
 
     if ARGS.train:
