@@ -112,3 +112,7 @@ venv.bak/
 # data and log
 data
 logs
+
+# scripts
+*.sh
+*.ps1
