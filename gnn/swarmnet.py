@@ -25,13 +25,25 @@ class SwarmNet(keras.Model):
             self.conv1d = keras.layers.Lambda(lambda x: x)
 
         if self.edge_type > 1:
-            self.edge_encoders = [MLP(params['edge_encoder']['hidden_units'], name=f'edge_encoder_{i}')
+            self.edge_encoders = [MLP(params['edge_encoder']['hidden_units'],
+                                      params['edge_encoder']['dropout'],
+                                      params['edge_encoder']['batch_norm'],
+                                      name=f'edge_encoder_{i}')
                                   for i in range(self.skip_zero, self.edge_type)]
         else:
-            self.edge_encoder = MLP(params['edge_encoder']['hidden_units'], name='edge_encoder')
+            self.edge_encoder = MLP(params['edge_encoder']['hidden_units'],
+                                    params['edge_encoder']['dropout'],
+                                    params['edge_encoder']['batch_norm'],
+                                    name='edge_encoder')
 
-        self.node_encoder = MLP(params['node_encoder']['hidden_units'], name='node_encoder')
-        self.node_decoder = MLP(params['node_decoder']['hidden_units'], name='node_decoder')
+        self.node_encoder = MLP(params['node_encoder']['hidden_units'],
+                                params['node_encoder']['dropout'],
+                                params['node_encoder']['batch_norm'],
+                                name='node_encoder')
+        self.node_decoder = MLP(params['node_decoder']['hidden_units'],
+                                params['node_decoder']['dropout'],
+                                params['node_decoder']['batch_norm'],
+                                name='node_decoder')
 
         self.dense = keras.layers.Dense(params['ndims'], name='out_layer')
 
@@ -50,7 +62,7 @@ class SwarmNet(keras.Model):
         self.built = True
         return inputs
 
-    def _pred_next(self, time_segs, edge_types=None):
+    def _pred_next(self, time_segs, edge_types=None, training=False):
         # NOTE: For the moment, ignore edge_type.
         condensed_state = self.conv1d(time_segs)
         # condensed_state shape [batch, num_agents, 1, filters]
@@ -62,7 +74,7 @@ class SwarmNet(keras.Model):
             encoded_msg_by_type = []
             for i in range(self.edge_type - self.skip_zero):
                 # mlp_encoder for each edge type.
-                encoded_msg = self.edge_encoders[i](edge_msg)
+                encoded_msg = self.edge_encoders[i](edge_msg, training=training)
 
                 encoded_msg_by_type.append(encoded_msg)
 
@@ -75,22 +87,22 @@ class SwarmNet(keras.Model):
                                      keepdims=True)
         else:
             # Shape [batch, num_edges, 1, hidden_units]
-            edge_msg = self.edge_encoder(edge_msg)
+            edge_msg = self.edge_encoder(edge_msg, training=training)
 
         # Edge aggregation. Shape [batch, num_nodes, 1, filters]
         node_msg = self.edge_aggr(edge_msg)
-        node_msg = self.node_encoder(node_msg)
+        node_msg = self.node_encoder(node_msg, training=training)
         # The last state in each timeseries of the stack.
         prev_state = time_segs[:, :, -1:, :]
         # Skip connection
         node_state = tf.concat([prev_state, node_msg], axis=-1)
-        node_state = self.node_decoder(node_state)
+        node_state = self.node_decoder(node_state, training=training)
 
         # Predicted difference added to the prev state.
         next_state = self.dense(node_state) + prev_state
         return next_state
 
-    def call(self, inputs):
+    def call(self, inputs, training=False):
         # time_segs shape [batch, time_seg_len, num_agents, ndims]
         # Transpose to [batch, num_agents, time_seg_len,ndims]
         time_segs = inputs[0]
@@ -103,7 +115,8 @@ class SwarmNet(keras.Model):
         extended_time_segs = tf.transpose(time_segs, [0, 2, 1, 3])
 
         for i in range(self.pred_steps):
-            next_state = self._pred_next(extended_time_segs[:, :, i:, :], edge_types)
+            next_state = self._pred_next(
+                extended_time_segs[:, :, i:, :], edge_types, training=training)
             extended_time_segs = tf.concat([extended_time_segs, next_state], axis=2)
 
         # Transpose back to [batch, time_seg_len+pred_steps, num_agetns, ndims]

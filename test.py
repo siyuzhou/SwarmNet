@@ -35,8 +35,6 @@ def main():
     model_params.update({'nagents': nagents, 'ndims': ndims,
                          'pred_steps': ARGS.pred_steps, 'time_seg_len': seg_len})
     model, inputs = gnn.build_model(model_params, return_inputs=True)
-    print('\n', model.summary(), '\n')
-    gnn.load_model(model, ARGS.log_dir)
 
     print("Original model summary:")
     model.summary()

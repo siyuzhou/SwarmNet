@@ -24,15 +24,24 @@ class MLP(keras.layers.Layer):
             setattr(self, dropout_name, dropout_layer)
 
         self.out_layer = keras.layers.Dense(units[-1], activation='relu', name='out_layer')
-        self.batch_norm = keras.layers.BatchNormalization()
 
-    def call(self, x):
-        for name in self.hidden_layers:
+        if batch_norm:
+            self.batch_norm = keras.layers.BatchNormalization()
+        else:
+            self.batch_norm = None
+
+    def call(self, x, training=False):
+        for name, dropout_name in zip(self.hidden_layers, self.dropout_layers):
             layer = getattr(self, name)
+            dropout_layer = getattr(self, dropout_name)
+
             x = layer(x)
+            x = dropout_layer(x, training=training)
 
         x = self.out_layer(x)
-        return self.batch_norm(x)
+        if self.batch_norm:
+            return self.batch_norm(x, training=training)
+        return x
 
 
 class NodeAggregator(keras.layers.Layer):
