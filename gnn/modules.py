@@ -4,29 +4,35 @@ import numpy as np
 
 
 class MLP(keras.layers.Layer):
-    def __init__(self, units, name=None):
+    def __init__(self, units, dropout=0., batch_norm=False, name=None):
         if not units:
             raise ValueError("'units' must not be empty")
 
         super().__init__(name=name)
         self.hidden_layers = []
+        self.dropout_layers = []
 
         for i, unit in enumerate(units[:-1]):
             name = f'hidden{i}'
             layer = keras.layers.Dense(unit, activation='relu', name=name)
             self.hidden_layers.append(name)
             setattr(self, name, layer)
-            # NOTE: Support for dropout to be added.
-            # NOTE: Does one need BatchNorm?
+
+            dropout_name = f'dropout{i}'
+            dropout_layer = keras.layers.Dropout(dropout)
+            self.dropout_layers.append(dropout_name)
+            setattr(self, dropout_name, dropout_layer)
 
         self.out_layer = keras.layers.Dense(units[-1], activation='relu', name='out_layer')
+        self.batch_norm = keras.layers.BatchNormalization()
 
     def call(self, x):
         for name in self.hidden_layers:
             layer = getattr(self, name)
             x = layer(x)
 
-        return self.out_layer(x)
+        x = self.out_layer(x)
+        return self.batch_norm(x)
 
 
 class NodeAggregator(keras.layers.Layer):
@@ -87,7 +93,7 @@ class Conv1D(keras.layers.Layer):
         self.conv1d_layers = []
         for i, channels in enumerate(filters):
             name = f'conv{i}'
-            layer = keras.layers.Conv1D(channels, 3, name=name)
+            layer = keras.layers.Conv1D(channels, 3, activation='relu', name=name)
             self.conv1d_layers.append(name)
             setattr(self, name, layer)
 
