@@ -52,6 +52,18 @@ def main():
 
     if ARGS.train:
         checkpoint = gnn.save_model(model, ARGS.log_dir)
+
+        # Freeze some of the layers according to train mode.
+        if ARGS.train_mode > 0:
+            if model_params['edge_type'] > 1:
+                for edge_encoder in model.edge_encoders:
+                    edge_encoder.trainable = False
+            else:
+                model.edge_encoder.trainable = False
+
+        if ARGS.train_mode > 1:
+            model.node_encoder.trainable = False
+
         history = model.fit(input_data, expected_time_segs,
                             epochs=ARGS.epochs, batch_size=ARGS.batch_size,
                             callbacks=[checkpoint])
@@ -87,6 +99,11 @@ if __name__ == '__main__':
                         help='batch size')
     parser.add_argument('--train', action='store_true', default=False,
                         help='turn on training')
+    parser.add_argument('--train-mode', type=int, default=0,
+                        help='train mode determines which layers are frozen: '
+                             '0 - all layers are trainable; '
+                             '1 - edge encoders are frozen; '
+                             '2 - edge encoders and node encoder are frozen.')
     parser.add_argument('--eval', action='store_true', default=False,
                         help='turn on evaluation')
     parser.add_argument('--test', action='store_true', default=False,
