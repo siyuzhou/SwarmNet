@@ -63,7 +63,6 @@ class SwarmNet(keras.Model):
         return inputs
 
     def _pred_next(self, time_segs, edge_types=None, training=False):
-        # NOTE: For the moment, ignore edge_type.
         condensed_state = self.conv1d(time_segs)
         # condensed_state shape [batch, num_agents, 1, filters]
 
