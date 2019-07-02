@@ -46,7 +46,7 @@ def main():
     model_params.update({'nagents': nagents, 'ndims': ndims,
                          'pred_steps': ARGS.pred_steps, 'time_seg_len': seg_len})
     model = gnn.build_model(model_params)
-    model.summary()
+    # model.summary()
 
     gnn.load_model(model, ARGS.log_dir)
 
@@ -55,6 +55,7 @@ def main():
 
         # Freeze some of the layers according to train mode.
         if ARGS.train_mode > 0:
+            model.conv1d.trainable = False
             if model_params['edge_type'] > 1:
                 for edge_encoder in model.edge_encoders:
                     edge_encoder.trainable = False
