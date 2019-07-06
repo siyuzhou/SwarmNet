@@ -72,8 +72,9 @@ def main():
 
     elif ARGS.eval:
         result = model.evaluate(input_data, expected_time_segs, batch_size=ARGS.batch_size)
-        # print(result)
-        print('Baseline: ', eval_base_line(input_data))
+        # result = MSE
+        baseline = eval_base_line(input_data)
+        print('Baseline:', baseline, '\t| MSE / Baseline:', result / baseline)
 
     elif ARGS.test:
         prediction = model.predict(input_data)
