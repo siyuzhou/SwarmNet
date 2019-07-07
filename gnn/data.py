@@ -3,7 +3,7 @@ import numpy as np
 from . import utils
 
 
-def load_data(data_path, transpose=None, edge=True, prefix='train'):
+def load_data(data_path, transpose=None, edge=True, prefix='train', size=None):
     loc = np.load(os.path.join(data_path, '{}_position.npy'.format(prefix)))
     vel = np.load(os.path.join(data_path, '{}_velocity.npy'.format(prefix)))
 
@@ -13,9 +13,15 @@ def load_data(data_path, transpose=None, edge=True, prefix='train'):
 
     data = np.concatenate([loc, vel], axis=-1).astype(np.float32)
 
+    if size:
+        data = data[:size]
+
     if edge:
         # Edge data.
         edge_data = np.load(os.path.join(data_path, '{}_edge.npy'.format(prefix))).astype(np.int)
+
+        if size:
+            edge_data= edge_data[:size]
 
         instances, n_agents, _ = edge_data.shape
         edge_data = np.stack([edge_data[i][np.where(utils.fc_matrix(n_agents))]
