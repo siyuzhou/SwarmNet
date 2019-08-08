@@ -129,9 +129,8 @@ def build_model(params, return_inputs=False):
     model = SwarmNet(params)
 
     optimizer = keras.optimizers.Adam(lr=params['learning_rate'])
-    loss = keras.losses.MeanSquaredError()
 
-    model.compile(optimizer, loss=loss)
+    model.compile(optimizer, loss='mse')
 
     if params['edge_type'] > 1:
         input_shape = [(None, params['time_seg_len'], params['nagents'], params['ndims']),
