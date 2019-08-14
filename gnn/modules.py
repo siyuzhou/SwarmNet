@@ -4,7 +4,7 @@ import numpy as np
 
 
 class MLP(keras.layers.Layer):
-    def __init__(self, units, dropout=0., batch_norm=False, name=None):
+    def __init__(self, units, dropout=0., batch_norm=False, activity_l2=0., name=None):
         if not units:
             raise ValueError("'units' must not be empty")
 
@@ -14,7 +14,9 @@ class MLP(keras.layers.Layer):
 
         for i, unit in enumerate(units[:-1]):
             name = f'hidden{i}'
-            layer = keras.layers.Dense(unit, activation='relu', name=name)
+            layer = keras.layers.Dense(unit, activation='relu',
+                                       activity_regularizer=keras.regularizers.l2(activity_l2),
+                                       name=name)
             self.hidden_layers.append(name)
             setattr(self, name, layer)
 
