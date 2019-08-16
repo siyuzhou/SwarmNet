@@ -104,7 +104,8 @@ class Conv1D(keras.layers.Layer):
         self.conv1d_layers = []
         for i, channels in enumerate(filters):
             name = f'conv{i}'
-            layer = keras.layers.Conv1D(channels, 3, activation='relu', name=name)
+            layer = keras.layers.TimeDistributed(
+                keras.layers.Conv1D(channels, 3, activation='relu', name=name))
             self.conv1d_layers.append(name)
             setattr(self, name, layer)
 
@@ -113,15 +114,11 @@ class Conv1D(keras.layers.Layer):
     def call(self, time_segs):
         # Reshape to [batch*num_agents, time_seg_len, ndims], since conv1d only accept
         # tensor with 3 dimensions.
-        _, num_agents, time_seg_len, ndims = time_segs.shape.as_list()
-        state = tf.reshape(time_segs, shape=[-1, time_seg_len, ndims])
 
         # Node state encoder with 1D convolution along timesteps and across ndims as channels.
-        encoded_state = state
+        encoded_state = time_segs
         for name in self.conv1d_layers:
             conv = getattr(self, name)
             encoded_state = conv(encoded_state)
-
-        encoded_state = tf.reshape(encoded_state, shape=[-1, num_agents, 1, self.channels])
 
         return encoded_state
