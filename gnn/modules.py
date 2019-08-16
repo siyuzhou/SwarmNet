@@ -112,9 +112,6 @@ class Conv1D(keras.layers.Layer):
         self.channels = channels
 
     def call(self, time_segs):
-        # Reshape to [batch*num_agents, time_seg_len, ndims], since conv1d only accept
-        # tensor with 3 dimensions.
-
         # Node state encoder with 1D convolution along timesteps and across ndims as channels.
         encoded_state = time_segs
         for name in self.conv1d_layers:
