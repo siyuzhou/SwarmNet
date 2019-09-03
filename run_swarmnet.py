@@ -54,7 +54,18 @@ def main():
         checkpoint = gnn.save_model(model, ARGS.log_dir)
 
         # Freeze some of the layers according to train mode.
-        if ARGS.train_mode > 0:
+        if ARGS.train_mode == 1:
+            model.conv1d.trainable = True
+            if model_params['edge_type'] > 1:
+                for edge_encoder in model.edge_encoders:
+                    edge_encoder.trainable = True
+            else:
+                model.edge_encoder.trainable = True
+
+            model.node_encoder.trainable = False
+            model.node_decoder.trainable = False
+
+        elif ARGS.train_mode == 2:
             model.conv1d.trainable = False
             if model_params['edge_type'] > 1:
                 for edge_encoder in model.edge_encoders:
@@ -62,8 +73,8 @@ def main():
             else:
                 model.edge_encoder.trainable = False
 
-        if ARGS.train_mode > 1:
-            model.node_encoder.trainable = False
+            model.node_encoder.trainable = True
+            model.node_decoder.trainable = True
 
         history = model.fit(input_data, expected_time_segs,
                             epochs=ARGS.epochs, batch_size=ARGS.batch_size,
@@ -104,8 +115,8 @@ if __name__ == '__main__':
     parser.add_argument('--train-mode', type=int, default=0,
                         help='train mode determines which layers are frozen: '
                              '0 - all layers are trainable; '
-                             '1 - edge encoders are frozen; '
-                             '2 - edge encoders and node encoder are frozen.')
+                             '1 - conv1d layers and edge encoders are trainable; '
+                             '2 - edge encoders and node encoder are trainable.')
     parser.add_argument('--eval', action='store_true', default=False,
                         help='turn on evaluation')
     parser.add_argument('--test', action='store_true', default=False,
