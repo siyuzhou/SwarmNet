@@ -50,6 +50,9 @@ class SwarmNet(keras.Model):
                                 name='node_decoder')
 
         self.dense = keras.layers.Dense(params['ndims'], name='out_layer')
+        self.aneal = params['lambda']
+        if self.aneal > 1 or self.aneal < 0:
+            raise ValueError('aneal factor must be within 0 and 1')
 
         edges = fc_matrix(params['nagents'])
         self.node_aggr = NodeAggregator(edges)
@@ -94,7 +97,14 @@ class SwarmNet(keras.Model):
 
         # Edge aggregation. Shape [batch, num_nodes, 1, filters]
         node_msg = self.edge_aggr(edge_msg)
+
+        # Skip connection from node_msg.
+        node_msg_skip = node_msg
+
         node_msg = self.node_encoder(node_msg, training=training)
+
+        node_msg = (1 - self.aneal) * node_msg_skip + self.aneal * node_msg
+
         # The last state in each timeseries of the stack.
         prev_state = time_segs[:, :, -1:, :]
         # Skip connection
@@ -102,7 +112,7 @@ class SwarmNet(keras.Model):
         node_state = self.node_decoder(node_state, training=training)
 
         # Predicted difference added to the prev state.
-        next_state = self.dense(node_state) + prev_state
+        next_state = prev_state + self.dense(node_state)
         return next_state
 
     def call(self, inputs, training=False):

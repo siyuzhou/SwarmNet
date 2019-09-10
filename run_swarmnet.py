@@ -62,7 +62,7 @@ def main():
             else:
                 model.edge_encoder.trainable = True
 
-            model.node_encoder.trainable = False
+            model.node_encoder.trainable = True
             model.node_decoder.trainable = False
 
         elif ARGS.train_mode == 2:
@@ -73,7 +73,7 @@ def main():
             else:
                 model.edge_encoder.trainable = False
 
-            model.node_encoder.trainable = True
+            model.node_encoder.trainable = False
             model.node_decoder.trainable = True
 
         history = model.fit(input_data, expected_time_segs,
