@@ -34,7 +34,7 @@ def main():
     model_params['edge_type'] = model_params.get('edge_type', 1)
     # data contains edge_types if `edge=True`.
     data = load_data(ARGS.data_dir, ARGS.data_transpose,
-                     edge=model_params['edge_type'] > 1, prefix=prefix, size=ARGS.data_size)
+                     edge=model_params['edge_type'] > 1, prefix=prefix, size=ARGS.data_size, padding=ARGS.max_padding)
 
     # input_data: a list which is [time_segs, edge_types] if `edge_type` > 1, else [time_segs]
     input_data, expected_time_segs = preprocess_data(
@@ -117,6 +117,8 @@ if __name__ == '__main__':
                              '0 - all layers are trainable; '
                              '1 - conv1d layers and edge encoders are trainable; '
                              '2 - edge encoders and node encoder are trainable.')
+    parser.add_argument('--max-padding', type=int, default=None,
+                        help='max pad length to the number of agents dimension')
     parser.add_argument('--eval', action='store_true', default=False,
                         help='turn on evaluation')
     parser.add_argument('--test', action='store_true', default=False,
