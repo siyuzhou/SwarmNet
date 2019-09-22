@@ -131,4 +131,13 @@ if __name__ == '__main__':
 
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
+    # to log device placement (on which device the operation ran)
+    config.log_device_placement = False
+    # (nothing gets printed in Jupyter, only if you run it standalone)
+    sess = tf.Session(config=config)
+    # set this TensorFlow session as the default session for Keras
+    tf.keras.backend.set_session(sess)
+
     main()
