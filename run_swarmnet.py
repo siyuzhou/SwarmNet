@@ -7,8 +7,6 @@ from tensorflow import keras
 import numpy as np
 
 import gnn
-from gnn.data import load_data, preprocess_data
-from gnn.utils import one_hot
 
 
 def eval_base_line(eval_data):
@@ -33,45 +31,42 @@ def main():
 
     model_params['edge_type'] = model_params.get('edge_type', 1)
     # data contains edge_types if `edge=True`.
-    data = load_data(ARGS.data_dir, ARGS.data_transpose,
-                     edge=model_params['edge_type'] > 1, prefix=prefix, size=ARGS.data_size, padding=ARGS.max_padding)
+    data = gnn.data.load_data(ARGS.data_dir, ARGS.data_transpose,
+                              prefix=prefix, size=ARGS.data_size, padding=ARGS.max_padding)
 
     # input_data: a list which is [time_segs, edge_types] if `edge_type` > 1, else [time_segs]
-    input_data, expected_time_segs = preprocess_data(
+    input_data, expected_time_segs = gnn.data.preprocess_data(
         data, seg_len, ARGS.pred_steps, edge_type=model_params['edge_type'])
     print(f"\nData from {ARGS.data_dir} processed.\n")
 
     nagents, ndims = expected_time_segs.shape[-2:]
 
-    model_params.update({'nagents': nagents, 'ndims': ndims,
+    model_params.update({'num_nodes': nagents, 'ndims': ndims,
                          'pred_steps': ARGS.pred_steps, 'time_seg_len': seg_len})
-    model = gnn.build_model(model_params)
+
+    model = gnn.SwarmNet.build_model(model_params)
     # model.summary()
 
-    gnn.load_model(model, ARGS.log_dir)
+    gnn.utils.load_model(model, ARGS.log_dir)
 
     if ARGS.train:
-        checkpoint = gnn.save_model(model, ARGS.log_dir)
+        checkpoint = gnn.utils.save_model(model, ARGS.log_dir)
 
         # Freeze some of the layers according to train mode.
         if ARGS.train_mode == 1:
             model.conv1d.trainable = True
-            if model_params['edge_type'] > 1:
-                for edge_encoder in model.edge_encoders:
-                    edge_encoder.trainable = True
-            else:
-                model.edge_encoder.trainable = True
+
+            for edge_encoder in model.edge_encoders:
+                edge_encoder.trainable = True
 
             model.node_encoder.trainable = True
             model.node_decoder.trainable = False
 
         elif ARGS.train_mode == 2:
             model.conv1d.trainable = False
-            if model_params['edge_type'] > 1:
-                for edge_encoder in model.edge_encoders:
-                    edge_encoder.trainable = False
-            else:
-                model.edge_encoder.trainable = False
+
+            for edge_encoder in model.edge_encoders:
+                edge_encoder.trainable = False
 
             model.node_encoder.trainable = False
             model.node_decoder.trainable = True
@@ -130,14 +125,15 @@ if __name__ == '__main__':
     ARGS.log_dir = os.path.expanduser(ARGS.log_dir)
 
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+    os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 
-    config = tf.compat.v1.ConfigProto()
-    config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
-    # to log device placement (on which device the operation ran)
-    config.log_device_placement = False
-    # (nothing gets printed in Jupyter, only if you run it standalone)
-    sess = tf.compat.v1.Session(config=config)
-    # set this TensorFlow session as the default session for Keras
-    tf.compat.v1.keras.backend.set_session(sess)
+    # config = tf.compat.v1.ConfigProto()
+    # config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
+    # # to log device placement (on which device the operation ran)
+    # config.log_device_placement = False
+    # # (nothing gets printed in Jupyter, only if you run it standalone)
+    # sess = tf.compat.v1.Session(config=config)
+    # # set this TensorFlow session as the default session for Keras
+    # tf.compat.v1.keras.backend.set_session(sess)
 
     main()
