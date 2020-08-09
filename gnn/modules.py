@@ -5,27 +5,25 @@ import numpy as np
 
 class MLP(keras.layers.Layer):
     def __init__(self, units, dropout=0., batch_norm=False, kernel_l2=0., name=None):
-        if not units:
-            raise ValueError("'units' must not be empty")
-
         super().__init__(name=name)
+
         self.hidden_layers = []
         self.dropout_layers = []
 
-        for i, unit in enumerate(units[:-1]):
-            name = f'hidden{i}'
-            layer = keras.layers.Dense(unit, activation='relu',
-                                       kernel_regularizer=keras.regularizers.l2(kernel_l2),
-                                       name=name)
-            self.hidden_layers.append(name)
-            setattr(self, name, layer)
+        if units:
+            for unit in units[:-1]:
+                layer = keras.layers.Dense(unit, activation='relu',
+                                           kernel_regularizer=keras.regularizers.l2(kernel_l2))
+                self.hidden_layers.append(layer)
 
-            dropout_name = f'dropout{i}'
-            dropout_layer = keras.layers.Dropout(dropout)
-            self.dropout_layers.append(dropout_name)
-            setattr(self, dropout_name, dropout_layer)
+                dropout_layer = keras.layers.Dropout(dropout)
+                self.dropout_layers.append(dropout_layer)
 
-        self.out_layer = keras.layers.Dense(units[-1], activation='relu', name='out_layer')
+            self.out_layer = keras.layers.Dense(units[-1], activation='relu')
+        else:
+            self.hidden_layers.append(keras.layers.Lambda(lambda x: x))
+            self.dropout_layers.append(keras.layers.Dropout(dropout))
+            self.out_layer = keras.layers.Lambda(lambda x: x)
 
         if batch_norm:
             self.batch_norm = keras.layers.BatchNormalization()
@@ -33,10 +31,7 @@ class MLP(keras.layers.Layer):
             self.batch_norm = None
 
     def call(self, x, training=False):
-        for name, dropout_name in zip(self.hidden_layers, self.dropout_layers):
-            layer = getattr(self, name)
-            dropout_layer = getattr(self, dropout_name)
-
+        for layer, dropout_layer in zip(self.hidden_layers, self.dropout_layers):
             x = layer(x)
             x = dropout_layer(x, training=training)
 
@@ -61,19 +56,14 @@ class Conv1D(keras.layers.Layer):
 
         self.conv1d_layers = []
         for i, channels in enumerate(filters):
-            name = f'conv{i}'
             layer = keras.layers.TimeDistributed(
                 keras.layers.Conv1D(channels, 3, activation='relu', name=name))
-            self.conv1d_layers.append(name)
-            setattr(self, name, layer)
-
-        self.channels = channels
+            self.conv1d_layers.append(layer)
 
     def call(self, time_segs):
         # Node state encoder with 1D convolution along timesteps and across ndims as channels.
         encoded_state = time_segs
-        for name in self.conv1d_layers:
-            conv = getattr(self, name)
+        for conv in self.conv1d_layers:
             encoded_state = conv(encoded_state)
 
         return encoded_state
@@ -84,25 +74,12 @@ class NodePropagator(keras.layers.Layer):
     Pass message between every pair of nodes.
     """
 
-    # def __init__(self):
-    #     super().__init__()
-
-    # Construct full connection matrix, mark source node and target node for each connection.
-    # `self._edge_sources` and `self._edge_targets` with size [num_edges, num_nodes]
-    # edge_sources, edge_targets = np.where(np.ones((graph_size, graph_size)))
-    # self._edge_sources = tf.one_hot(edge_sources, len(edges))
-    # self._edge_targets = tf.one_hot(edge_targets, len(edges))
-
     def call(self, node_states):
         # node_states shape [batch, num_nodes, out_units].
         num_nodes = node_states.shape[1]
 
         msg_from_source = tf.repeat(tf.expand_dims(node_states, 2), num_nodes, axis=2)
         msg_from_target = tf.repeat(tf.expand_dims(node_states, 1), num_nodes, axis=1)
-        # msg_from_source = tf.transpose(tf.tensordot(node_states, self._edge_sources, axes=[[1], [1]]),
-        #                                perm=[0, 2, 1])
-        # msg_from_target = tf.transpose(tf.tensordot(node_states, self._edge_targets, axes=[[1], [1]]),
-        #                                perm=[0, 2, 1])
         # msg_from_source and msg_from_target in shape [batch, num_nodes, num_nodes, out_units]
         node_msgs = tf.concat([msg_from_source, msg_from_target], axis=-1)
 
@@ -114,22 +91,11 @@ class EdgeSumAggregator(keras.layers.Layer):
     Sum up messages from incoming edges to the node.
     """
 
-    # def __init__(self):
-    #     super().__init__()
-
-    # `edge_sources` and `edge_targets` in shape [num_edges, num_nodes].
-    # edge_targets = np.where(np.ones((graph_size, graph_size)))[1]
-    # self._edge_targets = tf.one_hot(edge_targets, len(edges))
-
     def call(self, edge_msgs, node_states, edges):
         # edge_msg shape [batch, num_nodes, num_nodes, edge_type, out_units]
 
         # Add messsages of all edge types. Shape becomes [batch, num_nodes, out_units]
         edge_msg_sum = tf.reduce_sum(edge_msgs, axis=[1, 3])
-
-        # Sum edge msgs in each neighborhood.
-        # edge_msg_sum = tf.transpose(tf.tensordot(edge_msg_sum, self._edge_targets, axes=[[1], [0]]),
-        #                             perm=[0, 2, 1])  # Shape [batch, num_nodes, out_units].
 
         return edge_msg_sum
 
