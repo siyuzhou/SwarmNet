@@ -8,7 +8,7 @@ import numpy as np
 
 import gnn
 from gnn.data import load_data, preprocess_data
-from gnn.utils import one_hot
+import gnn.utils
 
 
 def main():
@@ -23,7 +23,7 @@ def main():
     model_params['edge_type'] = model_params.get('edge_type', 1)
     # data contains edge_types if `edge=True`.
     data = load_data(ARGS.data_dir, ARGS.data_transpose,
-                     edge=model_params['edge_type'] > 1, prefix=prefix)
+                     prefix=prefix)
     print(f"\nData from {ARGS.data_dir} loaded.")
 
     # input_data: a list which is [time_segs, edge_types] if `edge_type` > 1, else [time_segs]
@@ -34,13 +34,13 @@ def main():
 
     model_params.update({'nagents': nagents, 'ndims': ndims,
                          'pred_steps': ARGS.pred_steps, 'time_seg_len': seg_len})
-    model, inputs = gnn.build_model(model_params, return_inputs=True)
+    model, inputs = gnn.SwarmNet.build_model(model_params, return_inputs=True)
 
     print("Original model summary:")
     model.summary()
     print('\n')
 
-    gnn.load_model(model, ARGS.log_dir)
+    gnn.utils.load_model(model, ARGS.log_dir)
 
     # Create Debug model
     outlayer_name = ARGS.layer_name

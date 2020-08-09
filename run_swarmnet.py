@@ -56,25 +56,18 @@ def main():
         if ARGS.train_mode == 1:
             model.conv1d.trainable = True
 
-            for edge_encoder in model.edge_encoders:
-                edge_encoder.trainable = True
-
-            model.node_encoder.trainable = True
-            model.node_decoder.trainable = False
+            model.graph_conv.edge_encoder.trainable = True
+            model.graph_conv.node_decoder.trainable = False
 
         elif ARGS.train_mode == 2:
             model.conv1d.trainable = False
 
-            for edge_encoder in model.edge_encoders:
-                edge_encoder.trainable = False
+            model.graph_conv.edge_encoder.trainable = False
+            model.graph_conv.node_decoder.trainable = True
 
-            model.node_encoder.trainable = False
-            model.node_decoder.trainable = True
-
-        history = model.fit(input_data, expected_time_segs,
-                            epochs=ARGS.epochs, batch_size=ARGS.batch_size,
-                            callbacks=[checkpoint])
-        # print(history.history)
+        model.fit(input_data, expected_time_segs,
+                  epochs=ARGS.epochs, batch_size=ARGS.batch_size,
+                  callbacks=[checkpoint])
 
     elif ARGS.eval:
         result = model.evaluate(input_data, expected_time_segs, batch_size=ARGS.batch_size)
@@ -126,14 +119,5 @@ if __name__ == '__main__':
 
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
     os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-
-    # config = tf.compat.v1.ConfigProto()
-    # config.gpu_options.allow_growth = True  # dynamically grow the memory used on the GPU
-    # # to log device placement (on which device the operation ran)
-    # config.log_device_placement = False
-    # # (nothing gets printed in Jupyter, only if you run it standalone)
-    # sess = tf.compat.v1.Session(config=config)
-    # # set this TensorFlow session as the default session for Keras
-    # tf.compat.v1.keras.backend.set_session(sess)
 
     main()
