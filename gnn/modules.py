@@ -4,7 +4,7 @@ import numpy as np
 
 
 class MLP(keras.layers.Layer):
-    def __init__(self, units, dropout=0., batch_norm=False, kernel_l2=0., name=None):
+    def __init__(self, units, dropout=0., batch_norm=False, kernel_l2=0., activation='relu', name=None):
         super().__init__(name=name)
 
         self.hidden_layers = []
@@ -19,7 +19,7 @@ class MLP(keras.layers.Layer):
                 dropout_layer = keras.layers.Dropout(dropout)
                 self.dropout_layers.append(dropout_layer)
 
-            self.out_layer = keras.layers.Dense(units[-1], activation='relu')
+            self.out_layer = keras.layers.Dense(units[-1], activation=activation)
         else:
             self.hidden_layers.append(keras.layers.Lambda(lambda x: x))
             self.dropout_layers.append(keras.layers.Dropout(dropout))
