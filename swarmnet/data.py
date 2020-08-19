@@ -10,6 +10,9 @@ def load_data(data_path, transpose=None, load_time=False, prefix='train', size=N
 
     timeseries_files = sorted(glob.glob(os.path.join(data_path, f'{prefix}_timeseries*.npy')))
 
+    if not timeseries_files:
+        raise FileNotFoundError(f"no files matching pattern {prefix}_timeseries*.npy found")
+
     all_data = []
     for timeseries_f in timeseries_files:
         timeseries = np.load(timeseries_f)
@@ -32,6 +35,9 @@ def load_data(data_path, transpose=None, load_time=False, prefix='train', size=N
 
     # Load edge data.
     edge_files = sorted(glob.glob(os.path.join(data_path, f'{prefix}_edge*.npy')))
+
+    if not edge_files:
+        raise FileNotFoundError(f"no files matching pattern {prefix}_edges*.npy found")
 
     all_edges = []
     for edge_f in edge_files:
@@ -57,6 +63,9 @@ def load_data(data_path, transpose=None, load_time=False, prefix='train', size=N
     # Load time labels only when required.
     if load_time:
         time_files = sorted(glob.glob(os.path.join(data_path, f'{prefix}_time*.npy')))
+
+        if not time_files:
+            raise FileNotFoundError(f"no files matching pattern {prefix}_time*.npy found")
 
         all_times = []
         for time_f in time_files:
