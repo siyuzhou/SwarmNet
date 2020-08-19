@@ -6,9 +6,9 @@ import tensorflow as tf
 from tensorflow import keras
 import numpy as np
 
-import gnn
-from gnn.data import load_data, preprocess_data
-import gnn.utils
+import swarmnet
+from swarmnet.data import load_data, preprocess_data
+import swarmnet.utils
 
 
 def main():
@@ -34,13 +34,13 @@ def main():
 
     model_params.update({'nagents': nagents, 'ndims': ndims,
                          'pred_steps': ARGS.pred_steps, 'time_seg_len': seg_len})
-    model, inputs = gnn.SwarmNet.build_model(model_params, return_inputs=True)
+    model, inputs = swarmnet.SwarmNet.build_model(model_params, return_inputs=True)
 
     print("Original model summary:")
     model.summary()
     print('\n')
 
-    gnn.utils.load_model(model, ARGS.log_dir)
+    swarmnet.utils.load_model(model, ARGS.log_dir)
 
     # Create Debug model
     outlayer_name = ARGS.layer_name

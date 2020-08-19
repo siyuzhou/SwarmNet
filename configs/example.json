@@ -1,5 +1,5 @@
 {
-    "edge_type": 1,
+    "edge_type": 3,
     "cnn": {
         "filters": [
             32,

@@ -6,7 +6,7 @@ import tensorflow as tf
 from tensorflow import keras
 import numpy as np
 
-import gnn
+import swarmnet
 
 
 def eval_base_line(eval_data):
@@ -31,11 +31,11 @@ def main():
 
     model_params['edge_type'] = model_params.get('edge_type', 1)
     # data contains edge_types if `edge=True`.
-    data = gnn.data.load_data(ARGS.data_dir, ARGS.data_transpose,
-                              prefix=prefix, size=ARGS.data_size, padding=ARGS.max_padding)
+    data = swarmnet.data.load_data(ARGS.data_dir, ARGS.data_transpose,
+                                   prefix=prefix, size=ARGS.data_size, padding=ARGS.max_padding)
 
     # input_data: a list which is [time_segs, edge_types] if `edge_type` > 1, else [time_segs]
-    input_data, expected_time_segs = gnn.data.preprocess_data(
+    input_data, expected_time_segs = swarmnet.data.preprocess_data(
         data, seg_len, ARGS.pred_steps, edge_type=model_params['edge_type'])
     print(f"\nData from {ARGS.data_dir} processed.\n")
 
@@ -44,13 +44,13 @@ def main():
     model_params.update({'num_nodes': nagents, 'ndims': ndims,
                          'pred_steps': ARGS.pred_steps, 'time_seg_len': seg_len})
 
-    model = gnn.SwarmNet.build_model(model_params)
+    model = swarmnet.SwarmNet.build_model(model_params)
     # model.summary()
 
-    gnn.utils.load_model(model, ARGS.log_dir)
+    swarmnet.utils.load_model(model, ARGS.log_dir)
 
     if ARGS.train:
-        checkpoint = gnn.utils.save_model(model, ARGS.log_dir)
+        checkpoint = swarmnet.utils.save_model(model, ARGS.log_dir)
 
         # Freeze some of the layers according to train mode.
         if ARGS.train_mode == 1:
