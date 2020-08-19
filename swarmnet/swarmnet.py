@@ -6,21 +6,21 @@ from .modules import Conv1D, GraphConv
 
 
 class SwarmNet(keras.Model):
-    def __init__(self, params):
-        super().__init__(name='SwarmNet')
+    def __init__(self, num_nodes, output_dim, model_params, pred_steps=1, name='SwarmNet'):
+        super().__init__(name=name)
 
         # NOTE: For the moment assume Conv1D is always applied
-        self.pred_steps = params['pred_steps']
-        self.time_seg_len = params['time_seg_len']
+        self.time_seg_len = model_params['time_seg_len']
+        self.pred_steps = pred_steps
 
         if self.time_seg_len > 1:
-            self.conv1d = Conv1D(params['cnn']['filters'], name='Conv1D')
+            self.conv1d = Conv1D(model_params['cnn']['filters'], name='Conv1D')
         else:
             self.conv1d = keras.layers.Lambda(lambda x: x)
 
-        self.graph_conv = GraphConv(params['num_nodes'], params['edge_type'],
-                                    params, name='GraphConv')
-        self.dense = keras.layers.Dense(params['ndims'], name='out_layer')
+        self.graph_conv = GraphConv(num_nodes, model_params['edge_type'],
+                                    model_params, name='GraphConv')
+        self.dense = keras.layers.Dense(output_dim, name='out_layer')
 
     def build(self, input_shape):
         t = keras.layers.Input(input_shape[0][1:])
@@ -65,16 +65,16 @@ class SwarmNet(keras.Model):
         return extended_time_segs[:, self.time_seg_len:, :, :]
 
     @classmethod
-    def build_model(cls, params, return_inputs=False):
-        model = cls(params)
+    def build_model(cls, num_nodes, output_dim, model_params, pred_steps=1, return_inputs=False):
+        model = cls(num_nodes, output_dim, model_params, pred_steps)
 
-        optimizer = keras.optimizers.Adam(lr=params['learning_rate'])
+        optimizer = keras.optimizers.Adam(lr=model_params['learning_rate'])
 
         model.compile(optimizer, loss='mse')
 
-        n_edge_labels = max(params['edge_type'], 1) + 1
-        input_shape = [(None, params['time_seg_len'], params['num_nodes'], params['ndims']),
-                       (None, params['num_nodes'], params['num_nodes'], n_edge_labels)]
+        n_edge_labels = max(model_params['edge_type'], 1) + 1
+        input_shape = [(None, model_params['time_seg_len'], num_nodes, output_dim),
+                       (None, num_nodes, num_nodes, n_edge_labels)]
 
         inputs = model.build(input_shape)
 

@@ -1,6 +1,5 @@
 import os
 import argparse
-import json
 
 import tensorflow as tf
 from tensorflow import keras
@@ -16,35 +15,27 @@ def eval_base_line(eval_data):
 
 
 def main():
-    with open(ARGS.config) as f:
-        model_params = json.load(f)
-
-    # model_params['pred_steps'] = ARGS.pred_steps
-    seg_len = 2 * len(model_params['cnn']['filters']) + 1
-
     if ARGS.train:
         prefix = 'train'
     elif ARGS.eval:
         prefix = 'valid'
-    elif ARGS.test:
+    else:
         prefix = 'test'
 
-    model_params['edge_type'] = model_params.get('edge_type', 1)
+    model_params = swarmnet.utils.load_model_params(ARGS.config)
+
     # data contains edge_types if `edge=True`.
     data = swarmnet.data.load_data(ARGS.data_dir, ARGS.data_transpose,
                                    prefix=prefix, size=ARGS.data_size, padding=ARGS.max_padding)
 
     # input_data: a list which is [time_segs, edge_types] if `edge_type` > 1, else [time_segs]
     input_data, expected_time_segs = swarmnet.data.preprocess_data(
-        data, seg_len, ARGS.pred_steps, edge_type=model_params['edge_type'])
+        data, model_params['time_seg_len'], ARGS.pred_steps, edge_type=model_params['edge_type'])
     print(f"\nData from {ARGS.data_dir} processed.\n")
 
     nagents, ndims = expected_time_segs.shape[-2:]
 
-    model_params.update({'num_nodes': nagents, 'ndims': ndims,
-                         'pred_steps': ARGS.pred_steps, 'time_seg_len': seg_len})
-
-    model = swarmnet.SwarmNet.build_model(model_params)
+    model = swarmnet.SwarmNet.build_model(nagents, ndims, model_params, ARGS.pred_steps)
     # model.summary()
 
     swarmnet.utils.load_model(model, ARGS.log_dir)

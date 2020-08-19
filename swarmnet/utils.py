@@ -1,4 +1,5 @@
 import os
+import json
 import tensorflow as tf
 import numpy as np
 
@@ -33,3 +34,13 @@ def save_model(model, log_dir):
     model.save_weights(checkpoint)
 
     return tf.keras.callbacks.ModelCheckpoint(checkpoint, save_weights_only=True)
+
+
+def load_model_params(config):
+    with open(config) as f:
+        model_params = json.load(f)
+
+    seg_len = 2 * len(model_params['cnn']['filters']) + 1
+    model_params['time_seg_len'] = seg_len
+    model_params['edge_type'] = model_params.get('edge_type', 1)
+    return model_params
