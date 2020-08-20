@@ -4,6 +4,13 @@ import numpy as np
 from . import utils
 
 
+def stack_time_series(time_series, seg_len, axis=2):
+    # time_series shape [num_sims, time_steps, num_agents, ndims]
+    time_steps = time_series.shape[1]
+    return np.stack([time_series[:, i:time_steps+1-seg_len+i, :, :] for i in range(seg_len)],
+                    axis=axis)
+
+
 def load_data(data_path, transpose=None, load_time=False, prefix='train', size=None, padding=None):
     if not os.path.exists(data_path):
         raise ValueError(f"path '{data_path}' does not exist")
@@ -82,24 +89,34 @@ def load_data(data_path, transpose=None, load_time=False, prefix='train', size=N
     return all_data, all_edges
 
 
-def preprocess_data(data, seg_len=1, pred_steps=1, edge_type=1):
+def preprocess_data(data, seg_len=1, pred_steps=1, edge_type=1, ground_truth=True):
     time_series, edges = data[:2]
     time_steps, num_nodes, ndims = time_series.shape[1:]
+
+    if (seg_len + pred_steps > time_steps):
+        if ground_truth:
+            raise ValueError('time_steps in data not long enough for seg_len and pred_steps')
+        else:
+            stop = 1
+    else:
+        stop = -pred_steps
 
     edge_label = edge_type + 1  # Accounting for "no connection"
 
     # time_series shape [num_sims, time_steps, num_nodes, ndims]
     # Stack shape [num_sims, time_steps-seg_len-pred_steps+1, seg_len, num_nodes, ndims]
-    time_segs_stack = utils.stack_time_series(time_series[:, :-pred_steps, :, :],
-                                              seg_len)
-    # Stack shape [num_sims, time_steps-seg_len-pred_steps+1, pred_steps, num_nodes, ndims]
-    expected_time_segs_stack = utils.stack_time_series(time_series[:, seg_len:, :, :],
-                                                       pred_steps)
-    assert (time_segs_stack.shape[1] == expected_time_segs_stack.shape[1]
-            == time_steps - seg_len - pred_steps + 1)
-
+    time_segs_stack = stack_time_series(time_series[:, :stop, :, :],
+                                        seg_len)
     time_segs = time_segs_stack.reshape([-1, seg_len, num_nodes, ndims])
-    expected_time_segs = expected_time_segs_stack.reshape([-1, pred_steps, num_nodes, ndims])
+    if ground_truth:
+        # Stack shape [num_sims, time_steps-seg_len-pred_steps+1, pred_steps, num_nodes, ndims]
+        expected_time_segs_stack = stack_time_series(time_series[:, seg_len:, :, :],
+                                                     pred_steps)
+        assert (time_segs_stack.shape[1] == expected_time_segs_stack.shape[1]
+                == time_steps - seg_len - pred_steps + 1)
+        expected_time_segs = expected_time_segs_stack.reshape([-1, pred_steps, num_nodes, ndims])
+    else:
+        expected_time_segs = None
 
     edges_one_hot = utils.one_hot(edges, edge_label, np.float32)
     edges_one_hot = np.repeat(edges_one_hot, time_segs_stack.shape[1], axis=0)
@@ -107,11 +124,15 @@ def preprocess_data(data, seg_len=1, pred_steps=1, edge_type=1):
     if len(data) > 2:
         time_stamps = data[2]
 
-        time_stamps_stack = utils.stack_time_series(time_stamps[:, :-pred_steps], seg_len)
+        time_stamps_stack = stack_time_series(time_stamps[:, :stop], seg_len)
         time_stamps_segs = time_stamps_stack.reshape([-1, seg_len])
 
-        expected_time_stamps_stack = utils.stack_time_series(time_stamps[:, seg_len:], pred_steps)
-        expected_time_stamps_segs = expected_time_stamps_stack.reshape([-1, pred_steps])
+        if ground_truth:
+            expected_time_stamps_stack = stack_time_series(
+                time_stamps[:, seg_len:], pred_steps)
+            expected_time_stamps_segs = expected_time_stamps_stack.reshape([-1, pred_steps])
+        else:
+            expected_time_stamps_segs = None
 
         return [time_segs, edges_one_hot], expected_time_segs, [time_stamps_segs, expected_time_stamps_segs]
 

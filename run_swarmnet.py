@@ -8,10 +8,10 @@ import numpy as np
 import swarmnet
 
 
-def eval_base_line(eval_data):
+def eval_baseline(eval_data):
     time_segs = eval_data[0]
-    return np.mean(np.square(time_segs[:, :-1, :, :] -
-                             time_segs[:, 1:, :, :]))
+    return np.mean(np.square(time_segs[:-1, :, :] -
+                             time_segs[1:, :, :]))
 
 
 def main():
@@ -30,10 +30,10 @@ def main():
 
     # input_data: a list which is [time_segs, edge_types] if `edge_type` > 1, else [time_segs]
     input_data, expected_time_segs = swarmnet.data.preprocess_data(
-        data, model_params['time_seg_len'], ARGS.pred_steps, edge_type=model_params['edge_type'])
+        data, model_params['time_seg_len'], ARGS.pred_steps, edge_type=model_params['edge_type'], ground_truth=not ARGS.test)
     print(f"\nData from {ARGS.data_dir} processed.\n")
 
-    nagents, ndims = expected_time_segs.shape[-2:]
+    nagents, ndims = data[0].shape[-2:]
 
     model = swarmnet.SwarmNet.build_model(nagents, ndims, model_params, ARGS.pred_steps)
     # model.summary()
@@ -63,7 +63,7 @@ def main():
     elif ARGS.eval:
         result = model.evaluate(input_data, expected_time_segs, batch_size=ARGS.batch_size)
         # result = MSE
-        baseline = eval_base_line(input_data)
+        baseline = eval_baseline(data)
         print('Baseline:', baseline, '\t| MSE / Baseline:', result / baseline)
 
     elif ARGS.test:
