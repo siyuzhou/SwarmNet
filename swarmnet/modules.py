@@ -172,3 +172,18 @@ class GraphConv(keras.layers.Layer):
             tf.concat([node_states, edge_msgs_aggr], axis=-1), training=training)
 
         return node_states
+
+
+class OutLayer(keras.layers.Layer):
+    def __init__(self, unit, bound=None, name=None):
+        super().__init__(name=name)
+
+        if bound is None:
+            self.bound = 1.
+            self.dense = keras.layers.Dense(unit)
+        else:
+            self.bound = float(bound)
+            self.dense = keras.layers.Dense(unit, 'tanh')
+
+    def call(self, inputs):
+        return self.dense(inputs) * self.bound

@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from .modules import Conv1D, GraphConv
+from .modules import Conv1D, GraphConv, OutLayer
 
 
 class SwarmNet(keras.Model):
@@ -20,7 +20,8 @@ class SwarmNet(keras.Model):
 
         self.graph_conv = GraphConv(num_nodes, model_params['edge_type'],
                                     model_params, name='GraphConv')
-        self.dense = keras.layers.Dense(output_dim, name='out_layer')
+        
+        self.out_layer = OutLayer(output_dim, model_params.get('output_bound'))
 
     def build(self, input_shape):
         t = keras.layers.Input(input_shape[0][1:])
@@ -42,7 +43,7 @@ class SwarmNet(keras.Model):
         # Predicted difference added to the prev state.
         # The last state in each timeseries of the stack.
         prev_state = time_segs[:, :, -1, :]
-        next_state = prev_state + self.dense(node_state)
+        next_state = prev_state + self.out_layer(node_state)
         return next_state
 
     def call(self, inputs, training=False):
