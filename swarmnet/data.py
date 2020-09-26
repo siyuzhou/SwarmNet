@@ -11,78 +11,53 @@ def stack_time_series(time_series, seg_len, axis=2):
                     axis=axis)
 
 
-def load_data(data_path, transpose=None, load_time=False, prefix='train', size=None, padding=None):
-    if not os.path.exists(data_path):
-        raise ValueError(f"path '{data_path}' does not exist")
-
-    timeseries_files = sorted(glob.glob(os.path.join(data_path, f'{prefix}_timeseries*.npy')))
-
-    if not timeseries_files:
-        raise FileNotFoundError(f"no files matching pattern {prefix}_timeseries*.npy found")
+def _load_files(file_pattern, dtype, padding=None, pad_dims=None):
+    files = sorted(glob.glob(file_pattern))
+    if not files:
+        raise FileNotFoundError(f"no files matching pattern {file_pattern} found")
 
     all_data = []
-    for timeseries_f in timeseries_files:
-        timeseries = np.load(timeseries_f)
+    for f in files:
+        data = np.load(f).astype(dtype)
 
-        if transpose:
-            timeseries = np.transpose(timeseries, transpose)
-
-        data = timeseries.astype(np.float32)
-
-        num_nodes = data.shape[2]
-        # Add padding to num_nodes dim if `padding` is not None.
-        if padding is not None and padding > num_nodes:
-            pad_len = padding - num_nodes
-            data = np.pad(data, [(0, 0), (0, 0), (0, pad_len), (0, 0)],
-                          mode='constant', constant_values=0)
+        if padding is not None and pad_dims is not None:
+            pad_shape = [(0, padding - s if i in pad_dims else 0) for i, s in enumerate(data.shape)]
+            data = np.pad(data, pad_shape, mode='constant', constant_values=0)
 
         all_data.append(data)
 
-    all_data = np.concatenate(all_data, axis=0)
+    return np.concatenate(all_data, axis=0)
+
+
+def load_data(data_path, prefix='train', size=None, padding=None, load_time=False):
+    if not os.path.exists(data_path):
+        raise ValueError(f"path '{data_path}' does not exist")
+
+    # Load timeseries data.
+    timeseries_file_pattern = os.path.join(data_path, f'{prefix}_timeseries*.npy')
+    all_data = _load_files(timeseries_file_pattern, np.float32, padding=padding, pad_dims=(2,))
 
     # Load edge data.
-    edge_files = sorted(glob.glob(os.path.join(data_path, f'{prefix}_edge*.npy')))
+    edge_file_pattern = os.path.join(data_path, f'{prefix}_edge*.npy')
+    all_edges = _load_files(edge_file_pattern, np.int, padding, pad_dims=(1, 2))
 
-    if not edge_files:
-        raise FileNotFoundError(f"no files matching pattern {prefix}_edges*.npy found")
-
-    all_edges = []
-    for edge_f in edge_files:
-        # Edge data.
-        edge_data = np.load(edge_f).astype(np.int)
-
-        # Padding
-        num_nodes = edge_data.shape[1]
-        if padding is not None and padding > num_nodes:
-            pad_len = padding - num_nodes
-            edge_data = np.pad(edge_data, [(0, 0), (0, pad_len), (0, pad_len)],
-                               mode='constant', constant_values=0)
-
-        all_edges.append(edge_data)
-
-    all_edges = np.concatenate(all_edges, axis=0)
-
+    shuffled_idx = np.random.permutation(len(all_data))
     # Truncate data samples if `size` is given.
     if size:
-        all_data = all_data[:size]
-        all_edges = all_edges[:size]
+        samples = shuffled_idx[:size]
+
+        all_data = all_data[samples]
+        all_edges = all_edges[samples]
 
     # Load time labels only when required.
     if load_time:
-        time_files = sorted(glob.glob(os.path.join(data_path, f'{prefix}_time*.npy')))
-
-        if not time_files:
-            raise FileNotFoundError(f"no files matching pattern {prefix}_time*.npy found")
-
-        all_times = []
-        for time_f in time_files:
-            time_data = np.load(time_f).astype(np.float32)
-            all_times.append(time_data)
-
-        all_times = np.concatenate(all_times, axis=0)
+        time_file_pattern = os.path.join(data_path, f'{prefix}_time*.npy')
+        all_times = _load_files(time_file_pattern, np.float32)
 
         if size:
-            all_times = all_times[:size]
+            samples = shuffled_idx[:size]
+
+            all_times = all_times[samples]
 
         return all_data, all_edges, all_times
 

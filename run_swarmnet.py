@@ -25,7 +25,7 @@ def main():
     model_params = swarmnet.utils.load_model_params(ARGS.config)
 
     # data contains edge_types if `edge=True`.
-    data = swarmnet.data.load_data(ARGS.data_dir, ARGS.data_transpose,
+    data = swarmnet.data.load_data(ARGS.data_dir,
                                    prefix=prefix, size=ARGS.data_size, padding=ARGS.max_padding)
 
     # input_data: a list which is [time_segs, edge_types] if `edge_type` > 1, else [time_segs]
@@ -75,8 +75,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data-dir', type=str,
                         help='data directory')
-    parser.add_argument('--data-transpose', type=int, nargs=4, default=None,
-                        help='axes for data transposition')
     parser.add_argument('--data-size', type=int, default=None,
                         help='optional data size cap to use for training')
     parser.add_argument('--config', type=str,
