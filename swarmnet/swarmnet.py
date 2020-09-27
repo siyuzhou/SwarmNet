@@ -21,7 +21,7 @@ class SwarmNet(keras.Model):
         self.graph_conv = GraphConv(num_nodes, model_params['edge_type'],
                                     model_params, name='GraphConv')
         
-        self.out_layer = OutLayer(output_dim, model_params.get('output_bound'))
+        self.out_layer = OutLayer(output_dim, model_params['output_bound'], name='out_layer')
 
     def build(self, input_shape):
         t = keras.layers.Input(input_shape[0][1:])

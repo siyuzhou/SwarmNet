@@ -182,7 +182,7 @@ class OutLayer(keras.layers.Layer):
             self.bound = 1.
             self.dense = keras.layers.Dense(unit)
         else:
-            self.bound = float(bound)
+            self.bound = np.array(bound, dtype=np.float32)
             self.dense = keras.layers.Dense(unit, 'tanh')
 
     def call(self, inputs):
