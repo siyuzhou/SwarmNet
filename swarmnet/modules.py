@@ -114,6 +114,7 @@ class EdgeEncoder(keras.layers.Layer):
                                   encoder_params['dropout'],
                                   encoder_params['batch_norm'],
                                   encoder_params['kernel_l2'],
+                                  activation=encoder_params.get('activation'),
                                   name=f'edge_encoder_{i}')
                               for i in range(1, self.edge_type+1)]
 
