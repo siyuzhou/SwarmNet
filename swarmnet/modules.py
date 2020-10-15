@@ -21,8 +21,6 @@ class MLP(keras.layers.Layer):
 
             self.out_layer = keras.layers.Dense(units[-1], activation=activation)
         else:
-            self.hidden_layers.append(keras.layers.Lambda(lambda x: x))
-            self.dropout_layers.append(keras.layers.Dropout(dropout))
             self.out_layer = keras.layers.Lambda(lambda x: x)
 
         if batch_norm:
