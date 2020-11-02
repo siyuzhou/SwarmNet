@@ -10,8 +10,9 @@ import swarmnet
 
 def eval_baseline(eval_data):
     time_segs = eval_data[0]
-    return np.mean(np.square(time_segs[:-1, :, :] -
-                             time_segs[1:, :, :]))
+    print(time_segs.shape)
+    return np.mean(np.square(time_segs[:, :-1, :, :] -
+                             time_segs[:, 1:, :, :]))
 
 
 def main():
