@@ -129,6 +129,19 @@ class EdgeMeanAggregator(keras.layers.Layer):
         return edge_msg_mean
 
 
+class EdgeMinAggregator(keras.layers.Layer):
+    """
+    Min pool messages from incoming edges to the node.
+    """
+
+    def call(self, edge_msgs, node_states, edges):
+        # edge_msg shape [batch, num_nodes, num_nodes, edge_type, out_units]
+
+        # Average messsages of all edge types. Shape becomes [batch, num_nodes, out_units]
+        edge_msg_min = tf.reduce_min(edge_msgs, axis=[1, 3])
+        return edge_msg_min
+
+
 class EdgeEncoder(keras.layers.Layer):
     """
     Propagate messages to edge from the two nodes connected via edge encoders.
@@ -180,6 +193,7 @@ class GraphConv(keras.layers.Layer):
 
         edge_aggrs = {'sum': EdgeSumAggregator,
                       'max': EdgeMaxAggregator,
+                      'min': EdgeMinAggregator,
                       'mean': EdgeMeanAggregator}
         self.edge_aggr = edge_aggrs[params['edge_aggr']]()
 
