@@ -37,6 +37,6 @@ def load_model_params(config):
     model_params['time_seg_len'] = seg_len
     model_params.setdefault('edge_type', 1)
     model_params.setdefault('output_bound')
-    model_params.setdefault('edge_aggr', 'sum')
+    model_params.setdefault('edge_aggr', {})
 
     return model_params

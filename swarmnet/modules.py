@@ -1,6 +1,6 @@
-import tensorflow as tf
-from tensorflow import keras
 import numpy as np
+from tensorflow import keras
+import tensorflow as tf
 
 
 class MLP(keras.layers.Layer):
@@ -87,59 +87,23 @@ class NodePropagator(keras.layers.Layer):
         return node_msgs
 
 
-class EdgeSumAggregator(keras.layers.Layer):
-    """
-    Sum up messages from incoming edges to the node.
-    """
+class EdgeAggregator(keras.layers.Layer):
+    def __init__(self, type='sum', activation=None):
+        super().__init__()
+        aggregators = {'sum': tf.reduce_sum,
+                       'max': tf.reduce_max,
+                       'min': tf.reduce_min,
+                       'mean': tf.reduce_mean}
+        self.aggregator = keras.layers.Lambda(
+            lambda x: aggregators[type](x, axis=[1, 3]))
 
-    def call(self, edge_msgs, node_states, edges):
-        # edge_msg shape [batch, num_nodes, num_nodes, edge_type, out_units]
-
-        # Add messsages of all edge types. Shape becomes [batch, num_nodes, out_units]
-        edge_msg_sum = tf.reduce_sum(edge_msgs, axis=[1, 3])
-
-        return edge_msg_sum
-
-
-class EdgeMaxAggregator(keras.layers.Layer):
-    """
-    Max pool messages from incoming edges to the node.
-    """
-
-    def call(self, edge_msgs, node_states, edges):
-        # edge_msg shape [batch, num_nodes, num_nodes, edge_type, out_units]
-
-        # Max pool messsages of all edge types. Shape becomes [batch, num_nodes, out_units]
-        edge_msg_max = tf.reduce_max(edge_msgs, axis=[1, 3])
-
-        return edge_msg_max
-
-
-class EdgeMeanAggregator(keras.layers.Layer):
-    """
-    Average messages from incoming edges to the node.
-    """
+        self.activation = keras.layers.Activation(activation)
 
     def call(self, edge_msgs, node_states, edges):
         # edge_msg shape [batch, num_nodes, num_nodes, edge_type, out_units]
 
         # Average messsages of all edge types. Shape becomes [batch, num_nodes, out_units]
-        edge_msg_mean = tf.reduce_mean(edge_msgs, axis=[1, 3])
-
-        return edge_msg_mean
-
-
-class EdgeMinAggregator(keras.layers.Layer):
-    """
-    Min pool messages from incoming edges to the node.
-    """
-
-    def call(self, edge_msgs, node_states, edges):
-        # edge_msg shape [batch, num_nodes, num_nodes, edge_type, out_units]
-
-        # Average messsages of all edge types. Shape becomes [batch, num_nodes, out_units]
-        edge_msg_min = tf.reduce_min(edge_msgs, axis=[1, 3])
-        return edge_msg_min
+        return self.activation(self.aggregator(edge_msgs))
 
 
 class EdgeEncoder(keras.layers.Layer):
@@ -152,13 +116,13 @@ class EdgeEncoder(keras.layers.Layer):
 
         self.edge_type = edge_type
 
-        self.edge_encoders = [MLP(encoder_params['hidden_units'],
-                                  encoder_params['dropout'],
-                                  encoder_params['batch_norm'],
-                                  encoder_params['kernel_l2'],
-                                  activation=encoder_params.get('activation'),
-                                  name=f'edge_encoder_{i}')
-                              for i in range(1, self.edge_type+1)]
+        self.encoders = [MLP(encoder_params['hidden_units'],
+                             encoder_params['dropout'],
+                             encoder_params['batch_norm'],
+                             encoder_params['kernel_l2'],
+                             activation=encoder_params.get('activation'),
+                             name=f'edge_encoder_{i}')
+                         for i in range(1, self.edge_type+1)]
 
     def call(self, node_msgs, edges, training=False):
         # `node_msgs` shape [batch, num_nodes*num_nodes, units]
@@ -170,7 +134,7 @@ class EdgeEncoder(keras.layers.Layer):
         encoded_msgs_by_type = []
         for i in range(self.edge_type):
             # mlp_encoder for each edge type.
-            encoded_msgs = self.edge_encoders[i](node_msgs, training=training)
+            encoded_msgs = self.encoders[i](node_msgs, training=training)
 
             encoded_msgs_by_type.append(encoded_msgs)
 
@@ -185,25 +149,31 @@ class EdgeEncoder(keras.layers.Layer):
         return edge_msgs
 
 
+class NodeDecoder(keras.layers.Layer):
+    def __init__(self, params):
+        super().__init__()
+        self.decoder = MLP(params['hidden_units'],
+                           params['dropout'],
+                           params['batch_norm'],
+                           params['kernel_l2'],
+                           name='node_decoder')
+
+    def call(self, node_states, edge_msgs, training=False):
+        # node_states and edge_msgs shape [batch, num_nodes, units]
+        return self.decoder(tf.concat([node_states, edge_msgs], axis=-1), training=training)
+
+
 class GraphConv(keras.layers.Layer):
     def __init__(self, graph_size, edge_type, params, name=None):
         super().__init__(name=name)
 
         self.node_prop = NodePropagator()
 
-        edge_aggrs = {'sum': EdgeSumAggregator,
-                      'max': EdgeMaxAggregator,
-                      'min': EdgeMinAggregator,
-                      'mean': EdgeMeanAggregator}
-        self.edge_aggr = edge_aggrs[params['edge_aggr']]()
+        self.edge_aggr = EdgeAggregator(**params['edge_aggr'])
 
         self.edge_encoder = EdgeEncoder(edge_type, params['edge_encoder'])
 
-        self.node_decoder = MLP(params['node_decoder']['hidden_units'],
-                                params['node_decoder']['dropout'],
-                                params['node_decoder']['batch_norm'],
-                                params['node_decoder']['kernel_l2'],
-                                name='node_decoder')
+        self.node_decoder = NodeDecoder(params['node_decoder'])
 
     def call(self, node_states, edges, training=False):
         # Propagate node states.
@@ -216,8 +186,7 @@ class GraphConv(keras.layers.Layer):
         edge_msgs_aggr = self.edge_aggr(edge_msgs, node_states, edges)
 
         # Update node_states
-        node_states = self.node_decoder(
-            tf.concat([node_states, edge_msgs_aggr], axis=-1), training=training)
+        node_states = self.node_decoder(node_states, edge_msgs_aggr, training)
 
         return node_states
 

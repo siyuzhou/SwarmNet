@@ -15,7 +15,10 @@
         "batch_norm": false,
         "kernel_l2": 0.001
     },
-    "edge_aggr": "sum",
+    "edge_aggr": {
+        "type": "sum",
+        "activation": "tanh"
+    },
     "node_decoder": {
         "hidden_units": [
             64,
