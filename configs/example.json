@@ -15,6 +15,7 @@
         "batch_norm": false,
         "kernel_l2": 0.001
     },
+    "edge_aggr": "sum",
     "node_decoder": {
         "hidden_units": [
             64,

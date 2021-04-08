@@ -19,7 +19,8 @@ class MLP(keras.layers.Layer):
                 dropout_layer = keras.layers.Dropout(dropout)
                 self.dropout_layers.append(dropout_layer)
 
-            self.out_layer = keras.layers.Dense(units[-1], activation=activation)
+            self.out_layer = keras.layers.Dense(
+                units[-1], activation=activation)
         else:
             self.out_layer = keras.layers.Lambda(lambda x: x)
 
@@ -76,8 +77,10 @@ class NodePropagator(keras.layers.Layer):
         # node_states shape [batch, num_nodes, out_units].
         num_nodes = node_states.shape[1]
 
-        msg_from_source = tf.repeat(tf.expand_dims(node_states, 2), num_nodes, axis=2)
-        msg_from_target = tf.repeat(tf.expand_dims(node_states, 1), num_nodes, axis=1)
+        msg_from_source = tf.repeat(tf.expand_dims(
+            node_states, 2), num_nodes, axis=2)
+        msg_from_target = tf.repeat(tf.expand_dims(
+            node_states, 1), num_nodes, axis=1)
         # msg_from_source and msg_from_target in shape [batch, num_nodes, num_nodes, out_units]
         node_msgs = tf.concat([msg_from_source, msg_from_target], axis=-1)
 
@@ -96,6 +99,34 @@ class EdgeSumAggregator(keras.layers.Layer):
         edge_msg_sum = tf.reduce_sum(edge_msgs, axis=[1, 3])
 
         return edge_msg_sum
+
+
+class EdgeMaxAggregator(keras.layers.Layer):
+    """
+    Max pool messages from incoming edges to the node.
+    """
+
+    def call(self, edge_msgs, node_states, edges):
+        # edge_msg shape [batch, num_nodes, num_nodes, edge_type, out_units]
+
+        # Max pool messsages of all edge types. Shape becomes [batch, num_nodes, out_units]
+        edge_msg_max = tf.reduce_max(edge_msgs, axis=[1, 3])
+
+        return edge_msg_max
+
+
+class EdgeMeanAggregator(keras.layers.Layer):
+    """
+    Average messages from incoming edges to the node.
+    """
+
+    def call(self, edge_msgs, node_states, edges):
+        # edge_msg shape [batch, num_nodes, num_nodes, edge_type, out_units]
+
+        # Average messsages of all edge types. Shape becomes [batch, num_nodes, out_units]
+        edge_msg_mean = tf.reduce_mean(edge_msgs, axis=[1, 3])
+
+        return edge_msg_mean
 
 
 class EdgeEncoder(keras.layers.Layer):
@@ -135,7 +166,8 @@ class EdgeEncoder(keras.layers.Layer):
 
         # Only encoded message of the type same as the edge type gets retaind.
         # Force skip 0 type, 0 means no connection, no message.
-        edge_msgs = tf.multiply(encoded_msgs_by_type, edge_types[:, :, :, 1:, :])
+        edge_msgs = tf.multiply(encoded_msgs_by_type,
+                                edge_types[:, :, :, 1:, :])
 
         return edge_msgs
 
@@ -146,7 +178,10 @@ class GraphConv(keras.layers.Layer):
 
         self.node_prop = NodePropagator()
 
-        self.edge_aggr = EdgeSumAggregator()
+        edge_aggrs = {'sum': EdgeSumAggregator,
+                      'max': EdgeMaxAggregator,
+                      'mean': EdgeMeanAggregator}
+        self.edge_aggr = edge_aggrs[params['edge_aggr']]()
 
         self.edge_encoder = EdgeEncoder(edge_type, params['edge_encoder'])
 

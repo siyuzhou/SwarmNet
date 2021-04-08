@@ -23,6 +23,8 @@ def main():
         prefix = 'test'
 
     model_params = swarmnet.utils.load_model_params(ARGS.config)
+    if ARGS.learning_rate is not None:
+        model_params['learning_rate'] = ARGS.learning_rate
 
     # data contains edge_types if `edge=True`.
     data = swarmnet.data.load_data(ARGS.data_dir,
@@ -31,11 +33,12 @@ def main():
     # input_data: a list which is [time_segs, edge_types] if `edge_type` > 1, else [time_segs]
     input_data, expected_time_segs = swarmnet.data.preprocess_data(
         data, model_params['time_seg_len'], ARGS.pred_steps, edge_type=model_params['edge_type'], ground_truth=not ARGS.test)
-    print(f"\nData from {ARGS.data_dir} processed.\n")
+    print(f"\n{prefix.capitalize()} data from {ARGS.data_dir} processed.\n")
 
     nagents, ndims = data[0].shape[-2:]
 
-    model = swarmnet.SwarmNet.build_model(nagents, ndims, model_params, ARGS.pred_steps)
+    model = swarmnet.SwarmNet.build_model(
+        nagents, ndims, model_params, ARGS.pred_steps)
     # model.summary()
 
     swarmnet.utils.load_model(model, ARGS.log_dir)
@@ -61,14 +64,16 @@ def main():
                   callbacks=[checkpoint])
 
     elif ARGS.eval:
-        result = model.evaluate(input_data, expected_time_segs, batch_size=ARGS.batch_size)
+        result = model.evaluate(
+            input_data, expected_time_segs, batch_size=ARGS.batch_size)
         # result = MSE
         baseline = eval_baseline(data)
         print('Baseline:', baseline, '\t| MSE / Baseline:', result / baseline)
 
     elif ARGS.test:
         prediction = model.predict(input_data)
-        np.save(os.path.join(ARGS.log_dir, f'prediction_{ARGS.pred_steps}.npy'), prediction)
+        np.save(os.path.join(ARGS.log_dir,
+                f'prediction_{ARGS.pred_steps}.npy'), prediction)
 
 
 if __name__ == '__main__':
@@ -87,6 +92,8 @@ if __name__ == '__main__':
                         help='number of steps the estimator predicts for time series')
     parser.add_argument('--batch-size', type=int, default=128,
                         help='batch size')
+    parser.add_argument('--learning-rate', '--lr', type=float, default=None,
+                        help='learning rate')
     parser.add_argument('--train', action='store_true', default=False,
                         help='turn on training')
     parser.add_argument('--train-mode', type=int, default=0,

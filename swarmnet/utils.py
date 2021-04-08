@@ -35,7 +35,8 @@ def load_model_params(config):
 
     seg_len = 2 * len(model_params['cnn']['filters']) + 1
     model_params['time_seg_len'] = seg_len
-    model_params['edge_type'] = model_params.get('edge_type', 1)
-    model_params['output_bound'] = model_params.get('output_bound')
-    
+    model_params.setdefault('edge_type', 1)
+    model_params.setdefault('output_bound')
+    model_params.setdefault('edge_aggr', 'sum')
+
     return model_params
