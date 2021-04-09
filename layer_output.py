@@ -38,7 +38,7 @@ def main():
     outlayer_name = ARGS.layer_name
     layers = {'edge_encoder': model.graph_conv.edge_encoder,
               'edge_aggr': model.graph_conv.edge_aggr,
-              'node_decoder': model.graph_conv}
+              'node_decoder': model.graph_conv.node_decoder}
 
     outlayer_model = keras.Model(
         inputs=inputs, outputs=layers[outlayer_name].output)
