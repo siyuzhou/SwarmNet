@@ -69,7 +69,7 @@ class SwarmNet(keras.Model):
     def build_model(cls, num_nodes, output_dim, model_params, pred_steps=1, return_inputs=False):
         model = cls(num_nodes, output_dim, model_params, pred_steps)
 
-        optimizer = keras.optimizers.Adam(lr=model_params['learning_rate'])
+        optimizer = keras.optimizers.Adam(learning_rate=model_params['learning_rate'])
 
         model.compile(optimizer, loss='mse')
 
